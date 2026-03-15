@@ -183,7 +183,6 @@ export default function NewDeliveryScreen() {
 
   const handlePhoneChange = (text: string) => {
     setCustomerPhone(text);
-    triggerCustomerSearch(text);
   };
 
   const triggerCustomerSearch = (query: string) => {

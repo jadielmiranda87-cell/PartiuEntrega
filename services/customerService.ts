@@ -24,7 +24,7 @@ export async function searchCustomers(businessId: string, query: string): Promis
     .from('customers')
     .select('*')
     .eq('business_id', businessId)
-    .or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
+    .ilike('name', `%${q}%`)
     .order('name', { ascending: true })
     .limit(10);
   return data ?? [];
