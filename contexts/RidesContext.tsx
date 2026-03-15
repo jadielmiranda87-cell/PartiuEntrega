@@ -1,12 +1,20 @@
 import React, { createContext, useContext, useState, useRef, useCallback, ReactNode } from 'react';
 import { Audio } from 'expo-av';
 
-// Multiple fallback URIs — tried in order until one works
+/**
+ * Short notification beep sounds — tried in order.
+ * Prefer small files (< 50 KB) for fast loading.
+ */
 const SOUND_URIS = [
-  'https://cdn.pixabay.com/audio/2022/03/15/audio_6e4af8a67e.mp3',
-  'https://www.soundjay.com/buttons/sounds/beep-07a.mp3',
-  'https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg',
+  // Short ding/notification — Mixkit CDN (reliable)
+  'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+  // Fallback 1: simple beep — Pixabay
+  'https://cdn.pixabay.com/audio/2023/03/11/audio_40e2590fb3.mp3',
+  // Fallback 2: alert tone
+  'https://cdn.pixabay.com/audio/2022/07/26/audio_124bfae6aa.mp3',
 ];
+
+const BEEP_INTERVAL_MS = 1000; // 1 second between beeps
 
 interface RidesContextType {
   newRidesCount: number;
@@ -22,65 +30,94 @@ const RidesContext = createContext<RidesContextType | undefined>(undefined);
 export function RidesProvider({ children }: { children: ReactNode }) {
   const [newRidesCount, setNewRidesCount] = useState(0);
   const [isSoundPlaying, setIsSoundPlaying] = useState(false);
+
   const soundRef = useRef<Audio.Sound | null>(null);
   const isPlayingRef = useRef(false);
-  const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const beepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearBadge = () => setNewRidesCount(0);
 
-  // ── Internal: unload any active sound ────────────────────────────────────
-  const _unloadSound = async () => {
-    if (loopTimerRef.current) {
-      clearTimeout(loopTimerRef.current);
-      loopTimerRef.current = null;
-    }
-    if (soundRef.current) {
-      try {
-        await soundRef.current.stopAsync();
-      } catch { /* ignore */ }
-      try {
-        await soundRef.current.unloadAsync();
-      } catch { /* ignore */ }
-      soundRef.current = null;
+  // ── Cleanup ───────────────────────────────────────────────────────────────
+  const _clearTimer = () => {
+    if (beepTimerRef.current) {
+      clearTimeout(beepTimerRef.current);
+      beepTimerRef.current = null;
     }
   };
 
-  // ── Stop ─────────────────────────────────────────────────────────────────
+  const _unloadSound = async () => {
+    _clearTimer();
+    const s = soundRef.current;
+    soundRef.current = null;
+    if (s) {
+      try { await s.stopAsync(); } catch { /* ignore */ }
+      try { await s.unloadAsync(); } catch { /* ignore */ }
+    }
+  };
+
+  // ── Stop alert ────────────────────────────────────────────────────────────
   const stopAlertSound = useCallback(async () => {
     isPlayingRef.current = false;
     setIsSoundPlaying(false);
     await _unloadSound();
   }, []);
 
-  // ── Internal: try to load & play one URI ─────────────────────────────────
-  const _tryPlayUri = async (uri: string): Promise<Audio.Sound | null> => {
-    try {
-      const { sound, status } = await Audio.Sound.createAsync(
-        { uri },
-        { isLooping: true, volume: 1.0, shouldPlay: true },
-        undefined,
-        true // downloadFirst — avoids stuttering
-      );
-      if ((status as any).isLoaded) {
-        console.log('[RidesContext] Sound loaded OK:', uri);
-        return sound;
-      }
-      await sound.unloadAsync();
-      return null;
-    } catch (e) {
-      console.warn('[RidesContext] Failed URI:', uri, e);
-      return null;
-    }
-  };
+  // ── Play one beep ─────────────────────────────────────────────────────────
+  const _playBeep = useCallback(async () => {
+    if (!isPlayingRef.current) return;
 
-  // ── Start ─────────────────────────────────────────────────────────────────
+    // Reuse loaded sound or load fresh
+    let sound = soundRef.current;
+
+    if (!sound) {
+      // Try each URI
+      for (const uri of SOUND_URIS) {
+        if (!isPlayingRef.current) return;
+        try {
+          const { sound: s, status } = await Audio.Sound.createAsync(
+            { uri },
+            { shouldPlay: false, volume: 1.0 }
+          );
+          if ((status as any).isLoaded) {
+            sound = s;
+            soundRef.current = s;
+            console.log('[RidesContext] Loaded sound:', uri);
+            break;
+          }
+          await s.unloadAsync();
+        } catch (e) {
+          console.warn('[RidesContext] URI failed:', uri, e);
+        }
+      }
+    }
+
+    if (!isPlayingRef.current) return;
+
+    if (sound) {
+      try {
+        await sound.setPositionAsync(0);
+        await sound.playAsync();
+      } catch (e) {
+        // Sound broken — reload next cycle
+        console.warn('[RidesContext] Play error, will retry:', e);
+        try { await sound.unloadAsync(); } catch { /* ignore */ }
+        soundRef.current = null;
+      }
+    }
+
+    // Schedule next beep
+    if (isPlayingRef.current) {
+      beepTimerRef.current = setTimeout(_playBeep, BEEP_INTERVAL_MS);
+    }
+  }, []);
+
+  // ── Start alert ───────────────────────────────────────────────────────────
   const startAlertSound = useCallback(async () => {
-    if (isPlayingRef.current) return; // already playing
+    if (isPlayingRef.current) return;
     isPlayingRef.current = true;
     setIsSoundPlaying(true);
 
     try {
-      // Simplified audio mode — no staysActiveInBackground (requires native permission)
       await Audio.setAudioModeAsync({
         playsInSilentModeIOS: true,
         allowsRecordingIOS: false,
@@ -91,40 +128,9 @@ export function RidesProvider({ children }: { children: ReactNode }) {
       console.warn('[RidesContext] setAudioMode error:', e);
     }
 
-    // Unload previous sound
-    await _unloadSound();
-    if (!isPlayingRef.current) return;
-
-    // Try each URI until one works
-    let loadedSound: Audio.Sound | null = null;
-    for (const uri of SOUND_URIS) {
-      if (!isPlayingRef.current) break;
-      loadedSound = await _tryPlayUri(uri);
-      if (loadedSound) break;
-    }
-
-    if (!isPlayingRef.current) {
-      if (loadedSound) await loadedSound.unloadAsync();
-      return;
-    }
-
-    if (loadedSound) {
-      soundRef.current = loadedSound;
-      // Monitor playback status — restart if it stops unexpectedly
-      loadedSound.setOnPlaybackStatusUpdate((status) => {
-        if (!isPlayingRef.current) return;
-        if ((status as any).isLoaded && !(status as any).isPlaying && !(status as any).isBuffering) {
-          // isLooping should handle it, but fallback restart
-          loadedSound?.playFromPositionAsync(0).catch(() => {});
-        }
-      });
-    } else {
-      // All URIs failed — use silent fallback loop so badge/UI still works
-      console.warn('[RidesContext] All sound URIs failed, using silent mode');
-      isPlayingRef.current = false;
-      setIsSoundPlaying(false);
-    }
-  }, []);
+    // Start first beep immediately
+    _playBeep();
+  }, [_playBeep]);
 
   return (
     <RidesContext.Provider value={{

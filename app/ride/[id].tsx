@@ -88,9 +88,8 @@ export default function RideDetailScreen() {
           const { error } = await updateDeliveryStatus(delivery.id, 'delivered', { delivered_at: new Date().toISOString() });
           setUpdating(false);
           if (error) { showAlert('Erro', error); return; }
-          showAlert('Entregue!', 'Parabéns! Corrida concluída.', [
-            { text: 'OK', onPress: () => router.replace('/(motoboy)') }
-          ]);
+          // Navigate back to rides list immediately
+          router.replace('/(motoboy)');
         }
       }
     ]);
