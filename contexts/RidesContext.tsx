@@ -1,28 +1,26 @@
-import React, { createContext, useContext, useState, useRef, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useRef, useCallback, useEffect, ReactNode } from 'react';
 import { Audio } from 'expo-av';
 
 /**
- * Short notification beep sounds — tried in order.
- * Prefer small files (< 50 KB) for fast loading.
+ * Sound URIs tried in order during preload.
+ * Small files preferred for fast download.
  */
 const SOUND_URIS = [
-  // Short ding/notification — Mixkit CDN (reliable)
   'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
-  // Fallback 1: simple beep — Pixabay
   'https://cdn.pixabay.com/audio/2023/03/11/audio_40e2590fb3.mp3',
-  // Fallback 2: alert tone
   'https://cdn.pixabay.com/audio/2022/07/26/audio_124bfae6aa.mp3',
 ];
 
-const BEEP_INTERVAL_MS = 1000; // 1 second between beeps
+/** Gap between beeps (ms). 1000 = 1 second. */
+const BEEP_INTERVAL_MS = 1000;
 
 interface RidesContextType {
   newRidesCount: number;
   setNewRidesCount: React.Dispatch<React.SetStateAction<number>>;
   clearBadge: () => void;
   isSoundPlaying: boolean;
-  startAlertSound: () => Promise<void>;
-  stopAlertSound: () => Promise<void>;
+  startAlertSound: () => void;
+  stopAlertSound: () => void;
 }
 
 const RidesContext = createContext<RidesContextType | undefined>(undefined);
@@ -31,106 +29,116 @@ export function RidesProvider({ children }: { children: ReactNode }) {
   const [newRidesCount, setNewRidesCount] = useState(0);
   const [isSoundPlaying, setIsSoundPlaying] = useState(false);
 
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const isPlayingRef = useRef(false);
-  const beepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const soundRef   = useRef<Audio.Sound | null>(null);
+  const activeRef  = useRef(false);   // true while alert loop is running
+  const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearBadge = () => setNewRidesCount(0);
 
-  // ── Cleanup ───────────────────────────────────────────────────────────────
+  // ── Clear timer helper ─────────────────────────────────────────────────────
   const _clearTimer = () => {
-    if (beepTimerRef.current) {
-      clearTimeout(beepTimerRef.current);
-      beepTimerRef.current = null;
-    }
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
   };
 
-  const _unloadSound = async () => {
-    _clearTimer();
-    const s = soundRef.current;
-    soundRef.current = null;
-    if (s) {
-      try { await s.stopAsync(); } catch { /* ignore */ }
-      try { await s.unloadAsync(); } catch { /* ignore */ }
-    }
-  };
+  // ── Preload sound on mount ─────────────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
 
-  // ── Stop alert ────────────────────────────────────────────────────────────
-  const stopAlertSound = useCallback(async () => {
-    isPlayingRef.current = false;
-    setIsSoundPlaying(false);
-    await _unloadSound();
-  }, []);
+    const preload = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          allowsRecordingIOS: false,
+          shouldDuckAndroid: false,
+          playThroughEarpieceAndroid: false,
+        });
+      } catch (e) {
+        console.warn('[Rides] setAudioMode:', e);
+      }
 
-  // ── Play one beep ─────────────────────────────────────────────────────────
-  const _playBeep = useCallback(async () => {
-    if (!isPlayingRef.current) return;
-
-    // Reuse loaded sound or load fresh
-    let sound = soundRef.current;
-
-    if (!sound) {
-      // Try each URI
       for (const uri of SOUND_URIS) {
-        if (!isPlayingRef.current) return;
+        if (!mounted) return;
         try {
-          const { sound: s, status } = await Audio.Sound.createAsync(
+          const { sound, status } = await Audio.Sound.createAsync(
             { uri },
             { shouldPlay: false, volume: 1.0 }
           );
           if ((status as any).isLoaded) {
-            sound = s;
-            soundRef.current = s;
-            console.log('[RidesContext] Loaded sound:', uri);
-            break;
+            soundRef.current = sound;
+            console.log('[Rides] Preloaded:', uri);
+            return;
           }
-          await s.unloadAsync();
+          await sound.unloadAsync();
         } catch (e) {
-          console.warn('[RidesContext] URI failed:', uri, e);
+          console.warn('[Rides] Preload failed:', uri, e);
         }
+      }
+      console.warn('[Rides] All URIs failed to preload — will retry on demand');
+    };
+
+    preload();
+
+    return () => {
+      mounted = false;
+      _clearTimer();
+      soundRef.current?.unloadAsync().catch(() => {});
+      soundRef.current = null;
+    };
+  }, []);
+
+  // ── Internal: play one beep then schedule next ─────────────────────────────
+  const _beep = useCallback(async () => {
+    if (!activeRef.current) return;
+
+    // Reload if sound was lost
+    if (!soundRef.current) {
+      for (const uri of SOUND_URIS) {
+        try {
+          const { sound, status } = await Audio.Sound.createAsync(
+            { uri },
+            { shouldPlay: false, volume: 1.0 }
+          );
+          if ((status as any).isLoaded) { soundRef.current = sound; break; }
+          await sound.unloadAsync();
+        } catch { /* ignore */ }
       }
     }
 
-    if (!isPlayingRef.current) return;
-
-    if (sound) {
+    if (soundRef.current && activeRef.current) {
       try {
-        await sound.setPositionAsync(0);
-        await sound.playAsync();
+        await soundRef.current.setPositionAsync(0);
+        await soundRef.current.playAsync();
       } catch (e) {
-        // Sound broken — reload next cycle
-        console.warn('[RidesContext] Play error, will retry:', e);
-        try { await sound.unloadAsync(); } catch { /* ignore */ }
+        console.warn('[Rides] Play error:', e);
+        // Attempt to reload next cycle
+        try { await soundRef.current.unloadAsync(); } catch { /* ignore */ }
         soundRef.current = null;
       }
     }
 
-    // Schedule next beep
-    if (isPlayingRef.current) {
-      beepTimerRef.current = setTimeout(_playBeep, BEEP_INTERVAL_MS);
+    if (activeRef.current) {
+      timerRef.current = setTimeout(_beep, BEEP_INTERVAL_MS);
     }
   }, []);
 
-  // ── Start alert ───────────────────────────────────────────────────────────
-  const startAlertSound = useCallback(async () => {
-    if (isPlayingRef.current) return;
-    isPlayingRef.current = true;
+  // ── Stop alert ─────────────────────────────────────────────────────────────
+  const stopAlertSound = useCallback(() => {
+    activeRef.current = false;
+    setIsSoundPlaying(false);
+    _clearTimer();
+    // Stop playback but KEEP sound loaded for next alert
+    soundRef.current?.stopAsync().catch(() => {});
+    soundRef.current?.setPositionAsync(0).catch(() => {});
+  }, []);
+
+  // ── Start alert — plays first beep immediately ─────────────────────────────
+  const startAlertSound = useCallback(() => {
+    if (activeRef.current) return; // already running
+    activeRef.current = true;
     setIsSoundPlaying(true);
-
-    try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        allowsRecordingIOS: false,
-        shouldDuckAndroid: false,
-        playThroughEarpieceAndroid: false,
-      });
-    } catch (e) {
-      console.warn('[RidesContext] setAudioMode error:', e);
-    }
-
-    // Start first beep immediately
-    _playBeep();
-  }, [_playBeep]);
+    // Fire immediately — no await so caller isn't blocked
+    _beep();
+  }, [_beep]);
 
   return (
     <RidesContext.Provider value={{

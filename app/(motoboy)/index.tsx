@@ -148,7 +148,7 @@ export default function AvailableRidesScreen() {
   // ── Accept ride ────────────────────────────────────────────────────────
   const handleAccept = async (delivery: Delivery) => {
     if (!motoboyProfile) return;
-    await stopAlertSound();
+    stopAlertSound();
     setAccepting(delivery.id);
 
     const { error } = await acceptDelivery(delivery.id, motoboyProfile.id);
