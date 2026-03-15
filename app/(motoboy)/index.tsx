@@ -107,7 +107,7 @@ export default function AvailableRidesScreen() {
         }
 
         // Start continuous alert sound
-        startAlertSound();
+        await startAlertSound();
       }
     }
 
