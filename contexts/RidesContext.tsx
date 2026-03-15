@@ -3,10 +3,10 @@ import React, {
   useCallback, useEffect, ReactNode,
 } from 'react';
 import { Audio } from 'expo-av';
-import { BEEP_DATA_URI } from '@/constants/beepSound';
-
 /** Gap between beeps in ms */
 const BEEP_INTERVAL_MS = 1000;
+
+const ALERT_SOUND = require('@/assets/soud/alert.mp3');
 
 interface RidesContextType {
   newRidesCount: number;
@@ -47,7 +47,7 @@ export function RidesProvider({ children }: { children: ReactNode }) {
   const _loadSound = useCallback(async (): Promise<Audio.Sound | null> => {
     try {
       const { sound, status } = await Audio.Sound.createAsync(
-        { uri: BEEP_DATA_URI },
+        ALERT_SOUND,
         { shouldPlay: false, volume: 1.0, isLooping: false }
       );
       if ((status as any).isLoaded) return sound;
