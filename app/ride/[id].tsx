@@ -1,42 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, ActivityIndicator, Dimensions,
+  ScrollView, ActivityIndicator,
 } from 'react-native';
-import { NativeMapView as MapView, NativeMarker as Marker, NativePolyline as Polyline, NATIVE_PROVIDER_GOOGLE as PROVIDER_GOOGLE } from '@/components/ui/NativeMap';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAlert } from '@/template';
 import { useRides } from '@/contexts/RidesContext';
 import { getDeliveryById, updateDeliveryStatus, cancelDelivery } from '@/services/deliveryService';
-import { getDirections, geocodeAddress, decodePolyline, GeoLocation } from '@/services/mapsService';
 import { Delivery } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { openWaze, openWhatsApp, formatCurrency, formatPhone } from '@/utils/links';
-
-const { width } = Dimensions.get('window');
-const MAP_HEIGHT = 240;
-
-interface RouteData {
-  origin: GeoLocation;
-  destination: GeoLocation;
-  polyline: Array<{ latitude: number; longitude: number }>;
-  durationText?: string;
-  distanceText?: string;
-}
-
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#1a1a2e' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8a8aaa' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2d2d44' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#373750' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3d3d5c' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d0d1a' }] },
-  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-];
 
 export default function RideDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -44,8 +19,7 @@ export default function RideDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [routeData, setRouteData] = useState<RouteData | null>(null);
-  const [loadingMap, setLoadingMap] = useState(false);
+
   const { showAlert } = useAlert();
   const { isSoundPlaying, stopAlertSound } = useRides();
   const insets = useSafeAreaInsets();
@@ -65,64 +39,7 @@ export default function RideDetailScreen() {
     stopAlertSound();
   }, []);
 
-  // Load route map whenever delivery or status changes
-  useEffect(() => {
-    if (!delivery) return;
-    const biz = (delivery as any).businesses;
-    const isCollecting = delivery.status === 'assigned';
 
-    const loadRoute = async () => {
-      setLoadingMap(true);
-      setRouteData(null);
-      try {
-        let originAddr: string;
-        let destAddr: string;
-
-        if (isCollecting) {
-          destAddr = [biz?.address, biz?.address_number, biz?.neighborhood, biz?.city, biz?.state, 'Brasil'].filter(Boolean).join(', ');
-          const destGeo = await geocodeAddress(destAddr);
-          if (destGeo) {
-            setRouteData({
-              origin: { lat: destGeo.location.lat - 0.005, lng: destGeo.location.lng - 0.005 },
-              destination: destGeo.location,
-              polyline: [],
-            });
-          }
-        } else if (biz) {
-          originAddr = [biz?.address, biz?.address_number, biz?.neighborhood, biz?.city, biz?.state, 'Brasil'].filter(Boolean).join(', ');
-          destAddr = [
-            delivery.customer_address, delivery.customer_address_number,
-            delivery.customer_neighborhood, delivery.customer_city, delivery.customer_state, 'Brasil',
-          ].filter(Boolean).join(', ');
-
-          const directions = await getDirections(originAddr, destAddr);
-          if (directions && directions.polyline) {
-            setRouteData({
-              origin: directions.start_location,
-              destination: directions.end_location,
-              polyline: decodePolyline(directions.polyline),
-              durationText: directions.duration?.text,
-              distanceText: directions.distance?.text,
-            });
-          } else {
-            const [orig, dest] = await Promise.all([
-              geocodeAddress(originAddr),
-              geocodeAddress(destAddr),
-            ]);
-            if (orig && dest) {
-              setRouteData({ origin: orig.location, destination: dest.location, polyline: [] });
-            }
-          }
-        }
-      } catch {
-        // Map optional — no crash
-      } finally {
-        setLoadingMap(false);
-      }
-    };
-
-    loadRoute();
-  }, [delivery]);
 
   // ── Cancel / refuse ride (only before collect) ───────────────────────────
   const handleCancel = () => {
@@ -197,13 +114,6 @@ export default function RideDetailScreen() {
   const biz = (delivery as any).businesses;
   const isCollecting = delivery.status === 'assigned';
 
-  const mapRegion = routeData ? {
-    latitude: (routeData.origin.lat + routeData.destination.lat) / 2,
-    longitude: (routeData.origin.lng + routeData.destination.lng) / 2,
-    latitudeDelta: Math.abs(routeData.origin.lat - routeData.destination.lat) * 1.8 + 0.008,
-    longitudeDelta: Math.abs(routeData.origin.lng - routeData.destination.lng) * 1.8 + 0.008,
-  } : undefined;
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
@@ -241,61 +151,25 @@ export default function RideDetailScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
 
-        {/* ── Map ── */}
-        <View style={styles.mapContainer}>
-          {loadingMap ? (
-            <View style={styles.mapPlaceholder}>
-              <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={styles.mapLoadingText}>Carregando rota...</Text>
-            </View>
-          ) : routeData ? (
-            <MapView
-              style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              region={mapRegion}
-              scrollEnabled={false}
-              zoomEnabled={false}
-              rotateEnabled={false}
-              pitchEnabled={false}
-              customMapStyle={darkMapStyle}
-            >
-              <Marker
-                coordinate={{ latitude: routeData.origin.lat, longitude: routeData.origin.lng }}
-                title={isCollecting ? 'Sua localização' : (biz?.name ?? 'Comércio')}
-                pinColor={isCollecting ? Colors.info : Colors.primary}
-              />
-              <Marker
-                coordinate={{ latitude: routeData.destination.lat, longitude: routeData.destination.lng }}
-                title={isCollecting ? (biz?.name ?? 'Comércio') : delivery.customer_name}
-                pinColor={isCollecting ? Colors.primary : Colors.error}
-              />
-              {routeData.polyline.length > 0 && (
-                <Polyline
-                  coordinates={routeData.polyline}
-                  strokeColor={isCollecting ? Colors.primary : Colors.error}
-                  strokeWidth={3}
-                />
-              )}
-            </MapView>
-          ) : (
-            <View style={styles.mapPlaceholder}>
-              <MaterialIcons name="map" size={32} color={Colors.textMuted} />
-              <Text style={styles.mapLoadingText}>Mapa indisponível</Text>
-            </View>
-          )}
-
-          {routeData?.durationText && (
-            <View style={styles.etaOverlay}>
-              <MaterialIcons name="schedule" size={14} color={Colors.primary} />
-              <Text style={styles.etaText}>{routeData.durationText}</Text>
-              {routeData.distanceText ? (
-                <>
-                  <Text style={styles.etaSep}>·</Text>
-                  <Text style={styles.etaText}>{routeData.distanceText}</Text>
-                </>
-              ) : null}
-            </View>
-          )}
+        {/* ── Summary banner ── */}
+        <View style={styles.summaryBanner}>
+          <View style={styles.summaryItem}>
+            <MaterialIcons name="attach-money" size={20} color={Colors.primary} />
+            <Text style={styles.summaryValue}>{formatCurrency(delivery.price)}</Text>
+            <Text style={styles.summaryLabel}>Valor</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <MaterialIcons name="straighten" size={20} color={Colors.secondary} />
+            <Text style={styles.summaryValue}>{delivery.distance_km} km</Text>
+            <Text style={styles.summaryLabel}>Distância</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <MaterialIcons name={isCollecting ? 'store' : 'location-on'} size={20} color={isCollecting ? Colors.warning : Colors.error} />
+            <Text style={styles.summaryValue}>{isCollecting ? 'Coleta' : 'Entrega'}</Text>
+            <Text style={styles.summaryLabel}>Etapa</Text>
+          </View>
         </View>
 
         <View style={{ paddingHorizontal: Spacing.md }}>
@@ -310,13 +184,6 @@ export default function RideDetailScreen() {
               <MaterialIcons name="location-on" size={18} color={isCollecting ? Colors.textMuted : Colors.white} />
               <Text style={[styles.phaseText, isCollecting && { color: Colors.textMuted }]}>Entrega</Text>
             </View>
-          </View>
-
-          {/* Price */}
-          <View style={styles.priceCard}>
-            <Text style={styles.priceLabel}>Valor da corrida</Text>
-            <Text style={styles.priceValue}>{formatCurrency(delivery.price)}</Text>
-            <Text style={styles.distanceText}>{delivery.distance_km} km</Text>
           </View>
 
           {/* Current destination card */}
@@ -385,8 +252,15 @@ export default function RideDetailScreen() {
           {/* Customer info (after collect) */}
           {!isCollecting && (
             <View style={styles.infoCard}>
-              <Text style={styles.infoTitle}>Informações do Cliente</Text>
-              <Text style={styles.infoPhone}>{formatPhone(delivery.customer_phone)}</Text>
+              <View style={styles.infoRow}>
+                <MaterialIcons name="phone" size={18} color={Colors.secondary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoTitle}>Telefone do Cliente</Text>
+                  <TouchableOpacity onPress={() => openWhatsApp(delivery.customer_phone, `Olá ${delivery.customer_name}! Estou a caminho com sua entrega.`)} activeOpacity={0.8}>
+                    <Text style={styles.infoPhone}>{formatPhone(delivery.customer_phone)}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
               {delivery.notes ? (
                 <View style={styles.notesRow}>
                   <MaterialIcons name="notes" size={16} color={Colors.textMuted} />
@@ -395,6 +269,21 @@ export default function RideDetailScreen() {
               ) : null}
             </View>
           )}
+
+          {/* Commerce info (on collect step) */}
+          {isCollecting && biz?.phone ? (
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <MaterialIcons name="phone" size={18} color={Colors.secondary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.infoTitle}>Telefone do Comércio</Text>
+                  <TouchableOpacity onPress={() => openWhatsApp(biz.phone, `Olá! Sou motoboy do PartiuEntrega, estou indo buscar o pedido.`)} activeOpacity={0.8}>
+                    <Text style={styles.infoPhone}>{formatPhone(biz.phone)}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          ) : null}
 
           {/* Primary action button */}
           {isCollecting ? (
@@ -468,18 +357,17 @@ const styles = StyleSheet.create({
   errorText: { color: Colors.textSecondary, fontSize: FontSize.md },
   backLink: { color: Colors.primary, marginTop: Spacing.sm, fontSize: FontSize.md },
 
-  mapContainer: { width, height: MAP_HEIGHT, backgroundColor: Colors.surfaceElevated, marginBottom: Spacing.md },
-  map: { width: '100%', height: '100%' },
-  mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  mapLoadingText: { color: Colors.textMuted, fontSize: FontSize.sm },
-  etaOverlay: {
-    position: 'absolute', top: 8, left: 8,
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.surface + 'DD',
-    borderRadius: BorderRadius.sm, paddingHorizontal: 10, paddingVertical: 5,
+  summaryBanner: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  etaText: { fontSize: FontSize.xs, color: Colors.text, fontWeight: '600' },
-  etaSep: { color: Colors.textMuted, fontSize: FontSize.xs },
+  summaryItem: { flex: 1, alignItems: 'center', gap: 4 },
+  summaryValue: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
+  summaryLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
+  summaryDivider: { width: 1, height: 40, backgroundColor: Colors.border },
 
   phaseBar: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.md },
   phaseStep: {
@@ -492,14 +380,7 @@ const styles = StyleSheet.create({
   phaseConnector: { flex: 1, height: 2, backgroundColor: Colors.border, marginHorizontal: 4 },
   phaseConnectorDone: { backgroundColor: Colors.primary },
 
-  priceCard: {
-    backgroundColor: Colors.surface, borderRadius: BorderRadius.lg,
-    padding: Spacing.md, marginBottom: Spacing.md, alignItems: 'center',
-    borderWidth: 1, borderColor: Colors.primary + '44',
-  },
-  priceLabel: { fontSize: FontSize.sm, color: Colors.textSecondary },
-  priceValue: { fontSize: 36, fontWeight: '800', color: Colors.primary },
-  distanceText: { fontSize: FontSize.sm, color: Colors.textMuted },
+
 
   destinationCard: {
     backgroundColor: Colors.surface, borderRadius: BorderRadius.lg,
@@ -521,8 +402,9 @@ const styles = StyleSheet.create({
   },
 
   infoCard: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.md },
-  infoTitle: { fontSize: FontSize.sm, color: Colors.textMuted, fontWeight: '500', marginBottom: 6 },
-  infoPhone: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.text },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  infoTitle: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '500', marginBottom: 2 },
+  infoPhone: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.secondary },
   notesRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, alignItems: 'flex-start' },
   notesText: { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary },
 
