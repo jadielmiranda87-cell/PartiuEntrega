@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useRef, useCallback, ReactNode } from 'react';
 
+// Interval between beeps in milliseconds
+const BEEP_INTERVAL_MS = 3000;
+
 interface RidesContextType {
   newRidesCount: number;
   setNewRidesCount: React.Dispatch<React.SetStateAction<number>>;
@@ -17,12 +20,12 @@ export function RidesProvider({ children }: { children: ReactNode }) {
   const [isSoundPlaying, setIsSoundPlaying] = useState(false);
   const soundRef = useRef<any | null>(null);
   const soundPlayingRef = useRef(false);
+  const beepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearBadge = () => setNewRidesCount(0);
 
-  const stopAlertSound = useCallback(async () => {
-    soundPlayingRef.current = false;
-    setIsSoundPlaying(false);
+  // ── Unload current sound object ─────────────────────────────────────────
+  const unloadSound = useCallback(async () => {
     if (soundRef.current) {
       try {
         await soundRef.current.stopAsync();
@@ -32,10 +35,20 @@ export function RidesProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const startAlertSound = useCallback(async () => {
-    if (soundPlayingRef.current) return; // already ringing
-    soundPlayingRef.current = true;
-    setIsSoundPlaying(true);
+  // ── Stop all sound & cancel timer ──────────────────────────────────────
+  const stopAlertSound = useCallback(async () => {
+    soundPlayingRef.current = false;
+    setIsSoundPlaying(false);
+    if (beepTimerRef.current) {
+      clearTimeout(beepTimerRef.current);
+      beepTimerRef.current = null;
+    }
+    await unloadSound();
+  }, [unloadSound]);
+
+  // ── Play a single beep, then schedule the next one ─────────────────────
+  const playBeep = useCallback(async () => {
+    if (!soundPlayingRef.current) return;
 
     try {
       const { Audio } = await import('expo-av');
@@ -46,15 +59,18 @@ export function RidesProvider({ children }: { children: ReactNode }) {
         shouldDuckAndroid: false,
       });
 
-      // Use a reliable CDN sound URI — Google's notification/alarm sounds are blocked
-      // on some Android versions. We use a well-known open audio CDN instead.
+      // Short notification beep (open CDN, good cross-platform compatibility)
       const soundUri = 'https://cdn.pixabay.com/audio/2022/03/15/audio_6e4af8a67e.mp3';
+
+      // Unload previous instance before loading a new one
+      await unloadSound();
+
+      if (!soundPlayingRef.current) return;
 
       const { sound } = await Audio.Sound.createAsync(
         { uri: soundUri },
-        { isLooping: true, volume: 1.0 },
+        { isLooping: false, volume: 1.0 },
         (status) => {
-          // If load fails, reset state
           if (status.isLoaded === false && (status as any).error) {
             soundPlayingRef.current = false;
             setIsSoundPlaying(false);
@@ -64,19 +80,35 @@ export function RidesProvider({ children }: { children: ReactNode }) {
 
       soundRef.current = sound;
 
-      if (soundPlayingRef.current) {
-        await sound.playAsync();
-      } else {
-        // Stopped before it could start
+      if (!soundPlayingRef.current) {
         await sound.unloadAsync();
         soundRef.current = null;
+        return;
       }
+
+      await sound.playAsync();
+
+      // Schedule next beep after interval
+      beepTimerRef.current = setTimeout(() => {
+        playBeep();
+      }, BEEP_INTERVAL_MS);
+
     } catch (e) {
-      console.warn('Alert sound error:', e);
-      soundPlayingRef.current = false;
-      setIsSoundPlaying(false);
+      console.warn('Alert beep error:', e);
+      // Retry after interval even on error
+      if (soundPlayingRef.current) {
+        beepTimerRef.current = setTimeout(() => playBeep(), BEEP_INTERVAL_MS);
+      }
     }
-  }, []);
+  }, [unloadSound]);
+
+  // ── Start intermittent beeping ──────────────────────────────────────────
+  const startAlertSound = useCallback(async () => {
+    if (soundPlayingRef.current) return; // already ringing
+    soundPlayingRef.current = true;
+    setIsSoundPlaying(true);
+    await playBeep();
+  }, [playBeep]);
 
   return (
     <RidesContext.Provider value={{
