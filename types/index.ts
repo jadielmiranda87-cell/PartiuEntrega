@@ -91,4 +91,6 @@ export interface AppConfig {
   min_delivery_price: string;
   cashback_per_business_referral: string;
   cashback_per_motoboy_referral: string;
+  accept_cooldown_minutes: string;
+  refuse_cooldown_rules: string;
 }

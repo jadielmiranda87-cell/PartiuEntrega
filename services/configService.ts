@@ -10,6 +10,8 @@ export async function getAppConfig(): Promise<AppConfig> {
     min_delivery_price: '8.00',
     cashback_per_business_referral: '20.00',
     cashback_per_motoboy_referral: '30.00',
+    accept_cooldown_minutes: '30',
+    refuse_cooldown_rules: '[{"count":1,"minutes":15},{"count":2,"minutes":60},{"count":3,"minutes":360}]',
   };
   if (data) {
     data.forEach((row: { key: string; value: string }) => {

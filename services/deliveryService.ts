@@ -21,14 +21,37 @@ export async function getBusinessDeliveries(businessId: string): Promise<Deliver
   return data ?? [];
 }
 
-export async function getPendingDeliveries(): Promise<Delivery[]> {
+export async function getPendingDeliveries(motoboyId?: string): Promise<Delivery[]> {
   const supabase = getSupabaseClient();
   const { data } = await supabase
     .from('deliveries')
     .select('*, businesses(name, address, address_number, neighborhood, city, state, phone)')
     .in('status', ['pending'])
     .order('created_at', { ascending: false });
-  return data ?? [];
+
+  const all = data ?? [];
+  if (!motoboyId) return all;
+
+  // Filter out deliveries blocked by active cooldowns for this motoboy
+  const now = new Date().toISOString();
+  const { data: cooldowns } = await supabase
+    .from('motoboy_cooldowns')
+    .select('cooldown_type, business_id, cooldown_until')
+    .eq('motoboy_id', motoboyId)
+    .gt('cooldown_until', now);
+
+  if (!cooldowns || cooldowns.length === 0) return all;
+
+  const hasAcceptBlock = cooldowns.some((c) => c.cooldown_type === 'accept' && !c.business_id);
+  if (hasAcceptBlock) return []; // global cooldown — no deliveries shown
+
+  const blockedBusinessIds = new Set(
+    cooldowns
+      .filter((c) => c.cooldown_type === 'refuse' && c.business_id)
+      .map((c) => c.business_id as string)
+  );
+
+  return all.filter((d) => !blockedBusinessIds.has(d.business_id));
 }
 
 export async function getMotoboyDeliveries(motoboyId: string): Promise<Delivery[]> {

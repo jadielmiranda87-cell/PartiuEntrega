@@ -24,6 +24,11 @@ export default function AdminConfigScreen() {
   const [minDeliveryPrice, setMinDeliveryPrice] = useState('');
   const [cashbackPerBusiness, setCashbackPerBusiness] = useState('');
   const [cashbackPerMotoboy, setCashbackPerMotoboy] = useState('');
+  const [acceptCooldownMinutes, setAcceptCooldownMinutes] = useState('30');
+  // Refuse rules: array of {count, minutes}
+  const [refuseRule1, setRefuseRule1] = useState('15');
+  const [refuseRule2, setRefuseRule2] = useState('60');
+  const [refuseRule3, setRefuseRule3] = useState('360');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -39,6 +44,13 @@ export default function AdminConfigScreen() {
       setMinDeliveryPrice(c.min_delivery_price);
       setCashbackPerBusiness(c.cashback_per_business_referral);
       setCashbackPerMotoboy(c.cashback_per_motoboy_referral);
+      setAcceptCooldownMinutes(c.accept_cooldown_minutes || '30');
+      try {
+        const rules = JSON.parse(c.refuse_cooldown_rules || '[]');
+        if (rules[0]) setRefuseRule1(String(rules[0].minutes ?? 15));
+        if (rules[1]) setRefuseRule2(String(rules[1].minutes ?? 60));
+        if (rules[2]) setRefuseRule3(String(rules[2].minutes ?? 360));
+      } catch { /* use defaults */ }
       setLoading(false);
     });
   }, []);
@@ -73,17 +85,37 @@ export default function AdminConfigScreen() {
     }
 
     setSaving(true);
-    const [r1, r2, r3, r4, r5] = await Promise.all([
+    const accMin = parseInt(acceptCooldownMinutes, 10);
+    if (isNaN(accMin) || accMin < 0) {
+      showAlert('Valores inválidos', 'Informe tempo de cooldown positivo.');
+      return;
+    }
+    const r1m = parseInt(refuseRule1, 10);
+    const r2m = parseInt(refuseRule2, 10);
+    const r3m = parseInt(refuseRule3, 10);
+    if (isNaN(r1m) || isNaN(r2m) || isNaN(r3m)) {
+      showAlert('Valores inválidos', 'Informe tempos de recusa válidos.');
+      return;
+    }
+    const refuseCooldownRules = JSON.stringify([
+      { count: 1, minutes: r1m },
+      { count: 2, minutes: r2m },
+      { count: 3, minutes: r3m },
+    ]);
+
+    const [r1, r2, r3, r4, r5, r6, r7] = await Promise.all([
       updateAppConfig('subscription_price', sp.toFixed(2)),
       updateAppConfig('price_per_km', pkm.toFixed(2)),
       updateAppConfig('min_delivery_price', mp.toFixed(2)),
       updateAppConfig('cashback_per_business_referral', cpb.toFixed(2)),
       updateAppConfig('cashback_per_motoboy_referral', cpm.toFixed(2)),
+      updateAppConfig('accept_cooldown_minutes', String(accMin)),
+      updateAppConfig('refuse_cooldown_rules', refuseCooldownRules),
     ]);
     setSaving(false);
 
-    if (r1.error || r2.error || r3.error || r4.error || r5.error) {
-      showAlert('Erro ao salvar', r1.error ?? r2.error ?? r3.error ?? r4.error ?? r5.error ?? 'Tente novamente.');
+    if (r1.error || r2.error || r3.error || r4.error || r5.error || r6.error || r7.error) {
+      showAlert('Erro ao salvar', r1.error ?? r2.error ?? r3.error ?? r4.error ?? r5.error ?? r6.error ?? r7.error ?? 'Tente novamente.');
       return;
     }
 
@@ -182,6 +214,34 @@ export default function AdminConfigScreen() {
           <View style={styles.infoRow}>
             <MaterialIcons name="info-outline" size={16} color={Colors.textMuted} />
             <Text style={styles.infoText}>Creditado ao motoboy quando o indicado se cadastra e é aprovado</Text>
+          </View>
+        </View>
+
+        {/* Cooldown config */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="timer" size={20} color={Colors.error} />
+            <Text style={styles.sectionTitle}>Cooldown de Corridas</Text>
+          </View>
+
+          <Text style={styles.sectionDesc}>
+            Após aceitar uma corrida, o motoboy fica bloqueado por este tempo antes de receber novas corridas.
+          </Text>
+          <MinuteInput label="Cooldown após aceitar (minutos)" value={acceptCooldownMinutes} onChangeText={setAcceptCooldownMinutes} />
+
+          <View style={[styles.sectionHeader, { marginTop: Spacing.md }]}>
+            <MaterialIcons name="block" size={18} color={Colors.warning} />
+            <Text style={[styles.sectionTitle, { fontSize: FontSize.sm }]}>Cooldown por Recusa (por comércio)</Text>
+          </View>
+          <Text style={styles.infoText}>
+            Cooldown progressivo: o tempo aumenta a cada recusa do mesmo comércio.
+          </Text>
+          <MinuteInput label="1ª recusa — bloqueio (minutos)" value={refuseRule1} onChangeText={setRefuseRule1} />
+          <MinuteInput label="2ª recusa — bloqueio (minutos)" value={refuseRule2} onChangeText={setRefuseRule2} />
+          <MinuteInput label="3ª+ recusa — bloqueio (minutos)" value={refuseRule3} onChangeText={setRefuseRule3} />
+          <View style={styles.infoRow}>
+            <MaterialIcons name="info-outline" size={16} color={Colors.textMuted} />
+            <Text style={styles.infoText}>360 min = 6 horas. A 3ª regra se aplica a todas as recusas seguintes.</Text>
           </View>
         </View>
 
@@ -285,6 +345,25 @@ function ConfigInput({ label, value, onChangeText }: { label: string; value: str
           placeholderTextColor={Colors.textMuted}
           placeholder="0.00"
         />
+      </View>
+    </View>
+  );
+}
+
+function MinuteInput({ label, value, onChangeText }: { label: string; value: string; onChangeText: (v: string) => void }) {
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.inputWrapper}>
+        <TextInput
+          style={[styles.input, { flex: 1 }]}
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType="number-pad"
+          placeholderTextColor={Colors.textMuted}
+          placeholder="0"
+        />
+        <Text style={[styles.inputPrefix, { marginLeft: 4, marginRight: 0 }]}>min</Text>
       </View>
     </View>
   );
