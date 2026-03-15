@@ -249,25 +249,53 @@ export default function RideDetailScreen() {
             </View>
           )}
 
-          {/* Customer info (after collect) */}
+          {/* After collect: contact cards for BOTH business and customer */}
           {!isCollecting && (
-            <View style={styles.infoCard}>
-              <View style={styles.infoRow}>
-                <MaterialIcons name="phone" size={18} color={Colors.secondary} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.infoTitle}>Telefone do Cliente</Text>
-                  <TouchableOpacity onPress={() => openWhatsApp(delivery.customer_phone, `Olá ${delivery.customer_name}! Estou a caminho com sua entrega.`)} activeOpacity={0.8}>
-                    <Text style={styles.infoPhone}>{formatPhone(delivery.customer_phone)}</Text>
+            <>
+              {/* Comércio contact */}
+              {biz?.phone ? (
+                <View style={styles.contactCard}>
+                  <View style={styles.contactCardHeader}>
+                    <MaterialIcons name="store" size={18} color={Colors.primary} />
+                    <Text style={styles.contactCardTitle}>Contato do Comércio</Text>
+                  </View>
+                  <Text style={styles.contactCardName}>{biz?.name}</Text>
+                  <Text style={styles.contactCardPhone}>{formatPhone(biz.phone)}</Text>
+                  <TouchableOpacity
+                    style={[styles.whatsappContactBtn, { backgroundColor: Colors.primary + 'DD' }]}
+                    onPress={() => openWhatsApp(biz.phone, `Olá! Já coletei o pedido e estou a caminho do cliente ${delivery.customer_name}.`)}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialIcons name="chat" size={18} color={Colors.white} />
+                    <Text style={styles.whatsappContactText}>WhatsApp do Comércio</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-              {delivery.notes ? (
-                <View style={styles.notesRow}>
-                  <MaterialIcons name="notes" size={16} color={Colors.textMuted} />
-                  <Text style={styles.notesText}>{delivery.notes}</Text>
-                </View>
               ) : null}
-            </View>
+
+              {/* Cliente contact */}
+              <View style={styles.contactCard}>
+                <View style={styles.contactCardHeader}>
+                  <MaterialIcons name="person" size={18} color={Colors.secondary} />
+                  <Text style={styles.contactCardTitle}>Contato do Cliente</Text>
+                </View>
+                <Text style={styles.contactCardName}>{delivery.customer_name}</Text>
+                <Text style={styles.contactCardPhone}>{formatPhone(delivery.customer_phone)}</Text>
+                <TouchableOpacity
+                  style={[styles.whatsappContactBtn, { backgroundColor: '#25D366' }]}
+                  onPress={() => openWhatsApp(delivery.customer_phone, `Olá ${delivery.customer_name}! Estou a caminho com sua entrega.`)}
+                  activeOpacity={0.8}
+                >
+                  <MaterialIcons name="chat" size={18} color={Colors.white} />
+                  <Text style={styles.whatsappContactText}>WhatsApp do Cliente</Text>
+                </TouchableOpacity>
+                {delivery.notes ? (
+                  <View style={styles.notesRow}>
+                    <MaterialIcons name="notes" size={16} color={Colors.textMuted} />
+                    <Text style={styles.notesText}>{delivery.notes}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </>
           )}
 
           {/* Commerce info (on collect step) */}
@@ -407,6 +435,22 @@ const styles = StyleSheet.create({
   infoPhone: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.secondary },
   notesRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, alignItems: 'flex-start' },
   notesText: { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary },
+
+  // Contact cards (after collect)
+  contactCard: {
+    backgroundColor: Colors.surface, borderRadius: BorderRadius.lg,
+    padding: Spacing.md, marginBottom: Spacing.md,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  contactCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  contactCardTitle: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  contactCardName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginBottom: 2 },
+  contactCardPhone: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.sm },
+  whatsappContactBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderRadius: BorderRadius.md, height: 44,
+  },
+  whatsappContactText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
 
   actionBtn: {
     flexDirection: 'row', gap: Spacing.sm, borderRadius: BorderRadius.md,

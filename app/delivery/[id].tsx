@@ -232,17 +232,20 @@ export default function DeliveryDetailScreen() {
           ) : null}
 
           {motoboy && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Motoboy</Text>
-              <InfoRow label="Nome" value={motoboy.name} />
-              <InfoRow label="Telefone" value={formatPhone(motoboy.phone)} />
+            <View style={styles.motoboyContactCard}>
+              <View style={styles.motoboyContactHeader}>
+                <MaterialIcons name="two-wheeler" size={20} color={Colors.secondary} />
+                <Text style={styles.motoboyContactTitle}>Motoboy Atribuído</Text>
+              </View>
+              <Text style={styles.motoboyName}>{motoboy.name}</Text>
+              <Text style={styles.motoboyPhone}>{formatPhone(motoboy.phone)}</Text>
               <TouchableOpacity
-                style={styles.whatsappRow}
-                onPress={() => openWhatsApp(motoboy.phone, `Olá! Atualizações sobre o pedido de ${delivery.customer_name}`)}
+                style={styles.whatsappMotoboyBtn}
+                onPress={() => openWhatsApp(motoboy.phone, `Olá ${motoboy.name}! Preciso de informações sobre o pedido de ${delivery.customer_name}.`)}
                 activeOpacity={0.8}
               >
-                <MaterialIcons name="chat" size={18} color={Colors.white} />
-                <Text style={styles.whatsappText}>Chamar no WhatsApp</Text>
+                <MaterialIcons name="chat" size={20} color={Colors.white} />
+                <Text style={styles.whatsappMotoboyText}>Chamar Motoboy no WhatsApp</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -345,6 +348,23 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md, height: 44, alignItems: 'center', justifyContent: 'center', marginTop: Spacing.sm,
   },
   whatsappText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.md },
+
+  // Motoboy contact card
+  motoboyContactCard: {
+    backgroundColor: Colors.secondary + '15',
+    borderRadius: BorderRadius.lg, padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1.5, borderColor: Colors.secondary + '55',
+  },
+  motoboyContactHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 8 },
+  motoboyContactTitle: { fontSize: FontSize.xs, color: Colors.secondary, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  motoboyName: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text, marginBottom: 2 },
+  motoboyPhone: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.sm },
+  whatsappMotoboyBtn: {
+    flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.md, height: 50, alignItems: 'center', justifyContent: 'center',
+  },
+  whatsappMotoboyText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.md },
   cancelBtn: {
     flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.surface,
     borderRadius: BorderRadius.md, height: 50, alignItems: 'center', justifyContent: 'center',
