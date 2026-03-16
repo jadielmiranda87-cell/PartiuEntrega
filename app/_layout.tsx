@@ -23,6 +23,7 @@ export default function RootLayout() {
             <Stack.Screen name="(admin)" />
             <Stack.Screen name="ride/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="delivery/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
           </Stack>
           </RidesProvider>
         </AuthProvider>

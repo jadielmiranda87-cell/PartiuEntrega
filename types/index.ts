@@ -24,6 +24,12 @@ export interface Business {
   created_at: string;
 }
 
+export type VerificationStatus =
+  | 'pending_documents'
+  | 'under_review'
+  | 'approved'
+  | 'rejected';
+
 export interface Motoboy {
   id: string;
   user_id: string;
@@ -33,6 +39,17 @@ export interface Motoboy {
   cpf: string;
   cnh_number: string;
   cnh_category: string;
+  cnh_type?: 'physical' | 'digital';
+  cnh_front_url?: string;
+  cnh_back_url?: string;
+  cnh_pdf_url?: string;
+  selfie_url?: string;
+  verification_status?: VerificationStatus;
+  rejection_reason?: string;
+  lgpd_consent?: boolean;
+  lgpd_consent_at?: string;
+  delete_requested?: boolean;
+  delete_requested_at?: string;
   moto_brand: string;
   moto_model: string;
   moto_plate: string;
