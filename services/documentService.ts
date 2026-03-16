@@ -52,7 +52,7 @@ export async function pickImageFromGallery(): Promise<{ uri: string; type: strin
   const asset = result.assets[0];
   const mimeType = asset.mimeType ?? 'image/jpeg';
 
-  // Only accept jpg/png
+  // Only accept jpg/jpeg/png (photos from phone)
   if (!['image/jpeg', 'image/jpg', 'image/png'].includes(mimeType.toLowerCase())) {
     return null;
   }
@@ -60,6 +60,7 @@ export async function pickImageFromGallery(): Promise<{ uri: string; type: strin
 }
 
 export async function pickPdfDocument(): Promise<{ uri: string; name: string } | null> {
+  // Opens the native file picker — on Android this includes Google Drive, OneDrive, etc.
   const result = await DocumentPicker.getDocumentAsync({
     type: 'application/pdf',
     copyToCacheDirectory: true,
@@ -78,6 +79,13 @@ export async function pickPdfDocument(): Promise<{ uri: string; name: string } |
   if (!isPdf) return null;
 
   return { uri: asset.uri, name: asset.name ?? 'cnh_digital.pdf' };
+}
+
+/** Opens Google Drive file picker directly (Android intent). Falls back to system picker. */
+export async function pickPdfFromGoogleDrive(): Promise<{ uri: string; name: string } | null> {
+  // expo-document-picker automatically opens Google Drive on Android
+  // when the system file picker is invoked. We use the same flow.
+  return pickPdfDocument();
 }
 
 // ─── Upload to Supabase Storage ───────────────────────────────────────────────

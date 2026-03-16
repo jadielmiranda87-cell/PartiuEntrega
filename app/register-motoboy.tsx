@@ -14,6 +14,7 @@ import {
   pickImageFromCamera,
   pickImageFromGallery,
   pickPdfDocument,
+  pickPdfFromGoogleDrive,
   uploadDocument,
 } from '@/services/documentService';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
@@ -33,60 +34,95 @@ function InputField({ label, ...props }: { label: string } & React.ComponentProp
   );
 }
 
-// ── Document Picker Button ─────────────────────────────────────────────────────
-function DocPickerBtn({
-  label, onCamera, onGallery, onPdf, preview, accept,
+// ── Image Picker Button (CNH Física / Selfie) ─────────────────────────────────
+function ImagePickerBtn({
+  label, sublabel, onCamera, onGallery, preview,
 }: {
   label: string;
-  accept: 'image' | 'pdf';
-  onCamera?: () => void;
-  onGallery?: () => void;
-  onPdf?: () => void;
+  sublabel?: string;
+  onCamera: () => void;
+  onGallery: () => void;
   preview?: string | null;
 }) {
   return (
     <View style={docStyles.wrapper}>
       <Text style={styles.label}>{label}</Text>
+      {sublabel ? <Text style={docStyles.sublabel}>{sublabel}</Text> : null}
       {preview ? (
         <View style={docStyles.previewBox}>
-          {accept === 'image' ? (
-            <Image source={{ uri: preview }} style={docStyles.previewImage} resizeMode="cover" />
-          ) : (
-            <View style={docStyles.pdfPreview}>
-              <MaterialIcons name="picture-as-pdf" size={40} color={Colors.error} />
-              <Text style={docStyles.pdfText}>PDF selecionado</Text>
-            </View>
-          )}
+          <Image source={{ uri: preview }} style={docStyles.previewImage} resizeMode="cover" />
           <View style={docStyles.previewOverlay}>
             <MaterialIcons name="check-circle" size={28} color={Colors.success} />
           </View>
         </View>
       ) : (
         <View style={docStyles.placeholder}>
-          <MaterialIcons name={accept === 'pdf' ? 'picture-as-pdf' : 'photo-camera'} size={32} color={Colors.textMuted} />
-          <Text style={docStyles.placeholderText}>Nenhum arquivo selecionado</Text>
+          <MaterialIcons name="photo-camera" size={32} color={Colors.textMuted} />
+          <Text style={docStyles.placeholderText}>Nenhuma foto selecionada</Text>
+          <Text style={docStyles.placeholderSub}>Aceito: JPG, JPEG, PNG</Text>
         </View>
       )}
       <View style={docStyles.btnRow}>
-        {accept === 'image' && onCamera && (
-          <TouchableOpacity style={docStyles.btn} onPress={onCamera} activeOpacity={0.8}>
-            <MaterialIcons name="camera-alt" size={16} color={Colors.primary} />
-            <Text style={docStyles.btnText}>Câmera</Text>
-          </TouchableOpacity>
-        )}
-        {accept === 'image' && onGallery && (
-          <TouchableOpacity style={docStyles.btn} onPress={onGallery} activeOpacity={0.8}>
-            <MaterialIcons name="photo-library" size={16} color={Colors.primary} />
-            <Text style={docStyles.btnText}>Galeria</Text>
-          </TouchableOpacity>
-        )}
-        {accept === 'pdf' && onPdf && (
-          <TouchableOpacity style={[docStyles.btn, { flex: 1 }]} onPress={onPdf} activeOpacity={0.8}>
-            <MaterialIcons name="attach-file" size={16} color={Colors.primary} />
-            <Text style={docStyles.btnText}>Selecionar PDF</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={docStyles.btn} onPress={onCamera} activeOpacity={0.8}>
+          <MaterialIcons name="camera-alt" size={16} color={Colors.primary} />
+          <Text style={docStyles.btnText}>Câmera</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={docStyles.btn} onPress={onGallery} activeOpacity={0.8}>
+          <MaterialIcons name="photo-library" size={16} color={Colors.primary} />
+          <Text style={docStyles.btnText}>Galeria</Text>
+        </TouchableOpacity>
       </View>
+    </View>
+  );
+}
+
+// ── PDF Picker Button (CNH Digital) ───────────────────────────────────────────
+function PdfPickerBtn({
+  label, onPdf, onGoogleDrive, preview,
+}: {
+  label: string;
+  onPdf: () => void;
+  onGoogleDrive: () => void;
+  preview?: string | null;
+}) {
+  return (
+    <View style={docStyles.wrapper}>
+      <Text style={styles.label}>{label}</Text>
+      <Text style={docStyles.sublabel}>Somente arquivo PDF oficial — fotos e prints nao sao aceitos</Text>
+      {preview ? (
+        <View style={docStyles.pdfPreviewSelected}>
+          <MaterialIcons name="picture-as-pdf" size={36} color={Colors.error} />
+          <View style={{ flex: 1 }}>
+            <Text style={docStyles.pdfSelectedText}>PDF selecionado</Text>
+            <Text style={docStyles.pdfSelectedSub}>Arquivo pronto para envio</Text>
+          </View>
+          <MaterialIcons name="check-circle" size={24} color={Colors.success} />
+        </View>
+      ) : (
+        <View style={docStyles.placeholder}>
+          <MaterialIcons name="picture-as-pdf" size={36} color={Colors.textMuted} />
+          <Text style={docStyles.placeholderText}>Nenhum PDF selecionado</Text>
+          <Text style={docStyles.placeholderSub}>Aceito: somente PDF</Text>
+        </View>
+      )}
+
+      <TouchableOpacity style={docStyles.pdfBtn} onPress={onPdf} activeOpacity={0.8}>
+        <MaterialIcons name="folder-open" size={18} color={Colors.primary} />
+        <View style={{ flex: 1 }}>
+          <Text style={docStyles.pdfBtnTitle}>Arquivos do dispositivo</Text>
+          <Text style={docStyles.pdfBtnSub}>Armazenamento interno, cartao SD</Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={18} color={Colors.textMuted} />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[docStyles.pdfBtn, docStyles.pdfBtnDrive]} onPress={onGoogleDrive} activeOpacity={0.8}>
+        <MaterialIcons name="cloud" size={18} color="#4285F4" />
+        <View style={{ flex: 1 }}>
+          <Text style={[docStyles.pdfBtnTitle, { color: '#4285F4' }]}>Google Drive</Text>
+          <Text style={docStyles.pdfBtnSub}>Selecionar PDF salvo no Drive</Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={18} color={Colors.textMuted} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -235,33 +271,41 @@ export default function RegisterMotoboyScreen() {
   const handlePickCnhFrontCamera = async () => {
     const result = await pickImageFromCamera();
     if (result) setCnhFront(result);
+    else showAlert('Permissao necessaria', 'Permita o acesso a camera para tirar a foto.');
   };
   const handlePickCnhFrontGallery = async () => {
     const result = await pickImageFromGallery();
-    if (!result) { showAlert('Formato inválido', 'Somente JPG ou PNG são aceitos.'); return; }
+    if (!result) { showAlert('Formato invalido', 'Somente fotos JPG, JPEG ou PNG sao aceitas para CNH fisica.'); return; }
     setCnhFront(result);
   };
   const handlePickCnhBackCamera = async () => {
     const result = await pickImageFromCamera();
     if (result) setCnhBack(result);
+    else showAlert('Permissao necessaria', 'Permita o acesso a camera para tirar a foto.');
   };
   const handlePickCnhBackGallery = async () => {
     const result = await pickImageFromGallery();
-    if (!result) { showAlert('Formato inválido', 'Somente JPG ou PNG são aceitos.'); return; }
+    if (!result) { showAlert('Formato invalido', 'Somente fotos JPG, JPEG ou PNG sao aceitas para CNH fisica.'); return; }
     setCnhBack(result);
   };
   const handlePickCnhPdf = async () => {
     const result = await pickPdfDocument();
-    if (!result) { showAlert('Formato inválido', 'Somente arquivos PDF são aceitos.'); return; }
+    if (!result) { showAlert('Formato invalido', 'Somente arquivos PDF sao aceitos para CNH digital. Fotos e prints nao sao permitidos.'); return; }
+    setCnhPdf(result);
+  };
+  const handlePickCnhPdfDrive = async () => {
+    const result = await pickPdfFromGoogleDrive();
+    if (!result) { showAlert('Formato invalido', 'Somente arquivos PDF sao aceitos. Selecione um PDF no Google Drive.'); return; }
     setCnhPdf(result);
   };
   const handlePickSelfieCamera = async () => {
     const result = await pickImageFromCamera();
     if (result) setSelfie(result);
+    else showAlert('Permissao necessaria', 'Permita o acesso a camera para a selfie.');
   };
   const handlePickSelfieGallery = async () => {
     const result = await pickImageFromGallery();
-    if (!result) { showAlert('Formato inválido', 'Somente JPG ou PNG são aceitos.'); return; }
+    if (!result) { showAlert('Formato invalido', 'Somente fotos JPG, JPEG ou PNG sao aceitas.'); return; }
     setSelfie(result);
   };
 
@@ -556,18 +600,22 @@ export default function RegisterMotoboyScreen() {
           {/* Physical CNH */}
           {cnhType === 'physical' ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Fotos da CNH</Text>
-              <DocPickerBtn
+              <Text style={styles.sectionTitle}>Fotos da CNH Fisica</Text>
+              <View style={docStyles.formatBadge}>
+                <MaterialIcons name="photo-camera" size={14} color={Colors.success} />
+                <Text style={docStyles.formatBadgeText}>Formatos aceitos: JPG, JPEG, PNG — fotos de celular</Text>
+              </View>
+              <ImagePickerBtn
                 label="Frente da CNH *"
-                accept="image"
+                sublabel="Foto clara da frente do documento fisico"
                 preview={cnhFront?.uri}
                 onCamera={handlePickCnhFrontCamera}
                 onGallery={handlePickCnhFrontGallery}
               />
               <View style={{ height: Spacing.md }} />
-              <DocPickerBtn
+              <ImagePickerBtn
                 label="Verso da CNH *"
-                accept="image"
+                sublabel="Foto clara do verso do documento fisico"
                 preview={cnhBack?.uri}
                 onCamera={handlePickCnhBackCamera}
                 onGallery={handlePickCnhBackGallery}
@@ -576,17 +624,15 @@ export default function RegisterMotoboyScreen() {
           ) : (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>CNH Digital</Text>
-              <View style={styles.pdfNote}>
-                <MaterialIcons name="info" size={16} color={Colors.warning} />
-                <Text style={styles.pdfNoteText}>
-                  Somente o arquivo PDF oficial da CNH digital é aceito. Prints de tela e imagens não são permitidos.
-                </Text>
+              <View style={docStyles.formatBadge}>
+                <MaterialIcons name="picture-as-pdf" size={14} color={Colors.error} />
+                <Text style={docStyles.formatBadgeText}>Formato aceito: somente PDF oficial — imagens e prints bloqueados</Text>
               </View>
-              <DocPickerBtn
+              <PdfPickerBtn
                 label="Arquivo PDF da CNH Digital *"
-                accept="pdf"
-                preview={cnhPdf ? 'pdf' : null}
+                preview={cnhPdf ? cnhPdf.name : null}
                 onPdf={handlePickCnhPdf}
+                onGoogleDrive={handlePickCnhPdfDrive}
               />
             </View>
           )}
@@ -599,12 +645,12 @@ export default function RegisterMotoboyScreen() {
             <View style={styles.pdfNote}>
               <MaterialIcons name="info" size={16} color={Colors.info} />
               <Text style={styles.pdfNoteText}>
-                A selfie é usada para comparar com o documento enviado e confirmar sua identidade.
+                A selfie e usada para comparar com o documento enviado e confirmar sua identidade.
               </Text>
             </View>
-            <DocPickerBtn
+            <ImagePickerBtn
               label="Selfie *"
-              accept="image"
+              sublabel="Foto do rosto para verificacao de identidade"
               preview={selfie?.uri}
               onCamera={handlePickSelfieCamera}
               onGallery={handlePickSelfieGallery}
@@ -810,15 +856,24 @@ const permStyles = StyleSheet.create({
 });
 
 const docStyles = StyleSheet.create({
-  wrapper: { gap: 6 },
-  placeholder: {
-    height: 120, backgroundColor: Colors.surfaceElevated,
-    borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: Colors.border, borderStyle: 'dashed', gap: 8,
+  wrapper: { gap: 8 },
+  sublabel: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: -4 },
+  formatBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.sm,
+    paddingHorizontal: Spacing.sm, paddingVertical: 6,
+    borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.xs,
   },
-  placeholderText: { fontSize: FontSize.xs, color: Colors.textMuted },
+  formatBadgeText: { fontSize: 11, color: Colors.textSecondary, flex: 1 },
+  placeholder: {
+    height: 100, backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: Colors.border, borderStyle: 'dashed', gap: 4,
+  },
+  placeholderText: { fontSize: FontSize.sm, color: Colors.textMuted, fontWeight: '500' },
+  placeholderSub: { fontSize: 11, color: Colors.textMuted },
   previewBox: {
-    height: 140, borderRadius: BorderRadius.md, overflow: 'hidden',
+    height: 160, borderRadius: BorderRadius.md, overflow: 'hidden',
     position: 'relative',
   },
   previewImage: { width: '100%', height: '100%' },
@@ -827,20 +882,29 @@ const docStyles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20,
     padding: 2,
   },
-  pdfPreview: {
-    height: 140, backgroundColor: Colors.surfaceElevated,
-    borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: Colors.error + '44', gap: 8,
+  pdfPreviewSelected: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    backgroundColor: Colors.error + '10', borderRadius: BorderRadius.md,
+    padding: Spacing.md, borderWidth: 1, borderColor: Colors.success + '55',
   },
-  pdfText: { fontSize: FontSize.sm, color: Colors.error, fontWeight: '600' },
+  pdfSelectedText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
+  pdfSelectedSub: { fontSize: FontSize.xs, color: Colors.success, marginTop: 2 },
   btnRow: { flexDirection: 'row', gap: Spacing.sm },
   btn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, height: 40, borderRadius: BorderRadius.md,
+    gap: 6, height: 44, borderRadius: BorderRadius.md,
     backgroundColor: Colors.surfaceElevated,
     borderWidth: 1, borderColor: Colors.primary + '44',
   },
   btnText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
+  pdfBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md,
+    padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
+  },
+  pdfBtnDrive: { borderColor: '#4285F4' + '55', backgroundColor: '#4285F4' + '08' },
+  pdfBtnTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
+  pdfBtnSub: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
 });
 
 const styles = StyleSheet.create({
