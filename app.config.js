@@ -4,7 +4,7 @@ module.exports = {
     slug: 'partiuentrega',
     version: '1.0.0',
     orientation: 'portrait',
-    scheme: 'motolink',
+    scheme: 'PartiuEntrega',
     userInterfaceStyle: 'dark',
     newArchEnabled: true,
     icon: './assets/images/logo.png',
