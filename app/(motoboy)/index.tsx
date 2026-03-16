@@ -24,6 +24,7 @@ import { Delivery } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency, formatDate, openWhatsApp } from '@/utils/links';
+import { requestLocationPermission, requestNotificationPermission } from '@/services/permissionsService';
 
 const EXPIRY_WARN_DAYS = 5;
 
@@ -54,6 +55,7 @@ export default function AvailableRidesScreen() {
   const knownIdsRef = useRef<Set<string>>(new Set());
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isFocusedRef = useRef(true);
+  const permissionsRequestedRef = useRef(false);
 
   // Config cache
   const configRef = useRef<{ acceptMinutes: number; refuseRules: ReturnType<typeof parseRefuseCooldownRules> } | null>(null);
@@ -67,6 +69,17 @@ export default function AvailableRidesScreen() {
       refuseRules: parseRefuseCooldownRules(cfg.refuse_cooldown_rules),
     };
     return configRef.current;
+  }, []);
+
+  // Solicita permissões necessárias ao carregar pela primeira vez
+  React.useEffect(() => {
+    if (permissionsRequestedRef.current) return;
+    permissionsRequestedRef.current = true;
+
+    (async () => {
+      await requestLocationPermission();
+      await requestNotificationPermission();
+    })();
   }, []);
 
   // Stop sound when screen loses focus
