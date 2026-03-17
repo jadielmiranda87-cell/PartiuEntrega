@@ -35,7 +35,7 @@ async function getOsrmDistanceKm(
 ): Promise<number | null> {
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=false`;
-    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'MotoLinkApp/1.0' } });
+    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'PartiuEntrega/1.0' } });
     if (!res.ok) return null;
     const json = await res.json();
     if (json.code !== 'Ok' || !json.routes?.length) return null;
