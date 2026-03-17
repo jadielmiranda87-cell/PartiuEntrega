@@ -108,7 +108,7 @@ export default function LoginScreen() {
           <View style={styles.logoIcon}>
             <MaterialIcons name="delivery-dining" size={48} color={Colors.primary} />
           </View>
-          <Text style={styles.appName}>MotoLink</Text>
+          <Text style={styles.appName}>PartiuEntrega</Text>
           <Text style={styles.tagline}>Conectando comércios e motoboys</Text>
         </View>
 
