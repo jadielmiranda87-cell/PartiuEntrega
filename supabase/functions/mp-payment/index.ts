@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
       },
       external_reference: `${motoboy_id}|${subscription_id}`,
       notification_url: `${supabaseUrl}/functions/v1/mp-webhook`,
-      statement_descriptor: 'MotoLink App',
+      statement_descriptor: 'PartiuEntrega',
       expires: false,
       back_urls: {
         success: `${supabaseUrl}/functions/v1/mp-webhook`,
