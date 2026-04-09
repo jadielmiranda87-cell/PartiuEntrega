@@ -100,6 +100,17 @@ export async function updateDeliveryStatus(
   return { error: error ? error.message : null };
 }
 
+export async function getCustomerDeliveries(customerUserId: string): Promise<Delivery[]> {
+  const supabase = getSupabaseClient();
+  const { data } = await supabase
+    .from('deliveries')
+    .select('*, businesses(name, phone)')
+    .eq('customer_user_id', customerUserId)
+    .order('created_at', { ascending: false })
+    .limit(80);
+  return (data ?? []) as Delivery[];
+}
+
 export async function getAllDeliveries(): Promise<Delivery[]> {
   const supabase = getSupabaseClient();
   const { data } = await supabase

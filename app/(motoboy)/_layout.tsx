@@ -1,15 +1,27 @@
 import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/theme';
+import { Colors, Spacing, FontSize } from '@/constants/theme';
 import { useRides } from '@/contexts/RidesContext';
 
 export default function MotoboyLayout() {
   const insets = useSafeAreaInsets();
-  const { newRidesCount } = useRides();
+  const { newRidesCount, isSoundPlaying, stopAlertSound } = useRides();
 
   return (
+    <View style={styles.root}>
+      {isSoundPlaying ? (
+        <TouchableOpacity
+          onPress={() => stopAlertSound()}
+          style={[styles.soundBanner, { paddingTop: Math.max(insets.top, Spacing.sm) }]}
+          activeOpacity={0.85}
+        >
+          <MaterialIcons name="volume-up" size={22} color={Colors.warning} />
+          <Text style={styles.soundBannerText}>Alerta tocando — toque para silenciar</Text>
+          <MaterialIcons name="volume-off" size={20} color={Colors.textSecondary} />
+        </TouchableOpacity>
+      ) : null}
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -64,5 +76,26 @@ export default function MotoboyLayout() {
         }}
       />
     </Tabs>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.background },
+  soundBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    backgroundColor: Colors.warning + '22',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.warning + '44',
+  },
+  soundBannerText: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+});

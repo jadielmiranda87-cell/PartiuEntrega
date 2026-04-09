@@ -5,7 +5,7 @@ import { useAppAuth } from '@/hooks/useAppAuth';
 import { Colors } from '@/constants/theme';
 
 export default function RootIndex() {
-  const { userId, userType, motoboyProfile, loading, sessionKicked } = useAppAuth();
+  const { userId, userType, motoboyProfile, loading, sessionKicked, refreshProfile, signOut } = useAppAuth();
   const router = useRouter();
 
   // Handle session kicked (another device logged in)
@@ -28,8 +28,32 @@ export default function RootIndex() {
       return;
     }
 
-    // Wait until userType is resolved
-    if (!userType) return;
+    // userId is known but userType is not. Avoid infinite loading by retrying
+    // profile fetch, then falling back to login if still unresolved.
+    if (!userType) {
+      const t = setTimeout(async () => {
+        try {
+          await refreshProfile();
+        } catch {
+          // ignore
+        }
+      }, 1200);
+
+      const hard = setTimeout(async () => {
+        // Still no userType after retry: reset session to avoid stuck spinner
+        try {
+          await signOut();
+        } catch {
+          // ignore
+        }
+        router.replace('/login');
+      }, 8000);
+
+      return () => {
+        clearTimeout(t);
+        clearTimeout(hard);
+      };
+    }
 
     if (userType === 'admin') {
       router.replace('/(admin)');
@@ -38,6 +62,11 @@ export default function RootIndex() {
 
     if (userType === 'business') {
       router.replace('/(business)');
+      return;
+    }
+
+    if (userType === 'customer') {
+      router.replace('/(customer)');
       return;
     }
 
@@ -67,7 +96,7 @@ export default function RootIndex() {
     }
 
     router.replace('/login');
-  }, [loading, userId, userType, motoboyProfile, sessionKicked]);
+  }, [loading, userId, userType, motoboyProfile, sessionKicked, refreshProfile, signOut]);
 
   return (
     <View style={styles.container}>

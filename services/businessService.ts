@@ -22,3 +22,12 @@ export async function getAllBusinesses(): Promise<Business[]> {
     .order('created_at', { ascending: false });
   return data ?? [];
 }
+
+export async function updateBusinessProfile(
+  businessId: string,
+  data: Partial<Pick<Business, 'billing_plan' | 'payment_api_key' | 'opening_hours'>>
+): Promise<{ error: string | null }> {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.from('businesses').update(data).eq('id', businessId);
+  return { error: error ? error.message : null };
+}

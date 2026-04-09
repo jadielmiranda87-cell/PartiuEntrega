@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/template';
 import { AppConfig } from '@/types';
+import { DEFAULT_BILLING_JSON } from '@/constants/billingDefaults';
 
 export async function getAppConfig(): Promise<AppConfig> {
   const supabase = getSupabaseClient();
@@ -13,11 +14,13 @@ export async function getAppConfig(): Promise<AppConfig> {
     accept_cooldown_minutes: '30',
     refuse_cooldown_rules: '[{"count":1,"minutes":15},{"count":2,"minutes":60},{"count":3,"minutes":360}]',
     contact_whatsapp_phone: '',
+    billing_config: DEFAULT_BILLING_JSON,
   };
   if (data) {
+    const map = config as unknown as Record<string, string>;
     data.forEach((row: { key: string; value: string }) => {
       if (row.key in config) {
-        (config as Record<string, string>)[row.key] = row.value;
+        map[row.key] = row.value;
       }
     });
   }

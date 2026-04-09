@@ -69,7 +69,7 @@ export default function AdminBusinessesScreen() {
 
                   <TouchableOpacity
                     style={styles.whatsappBtn}
-                    onPress={() => openWhatsApp(item.phone, 'Olá! Entrando em contato pelo PartiuEntrega ADM.')}
+                    onPress={() => openWhatsApp(item.phone, 'Olá! Entrando em contato pelo FastFood ADM.')}
                     activeOpacity={0.8}
                   >
                     <MaterialIcons name="chat" size={16} color={Colors.white} />

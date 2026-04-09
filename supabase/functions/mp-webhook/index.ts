@@ -21,7 +21,7 @@ a{display:inline-block;margin-top:8px;padding:14px 22px;background:#ff6b00;color
 <body>
 <h1>${title}</h1>
 <p>${body}</p>
-<a href="${deepLink}">Abrir app PartiuEntrega</a>
+<a href="${deepLink}">Abrir no aplicativo</a>
 <p class="note">Se o app não abrir automaticamente, use o botão acima.</p>
 <script>
 (function(){
@@ -44,21 +44,35 @@ Deno.serve(async (req: Request) => {
 
   // Se for redirect do navegador (back_urls), devolve HTML amigável
   if (mp || collectionStatus) {
-    const deepLink = 'PartiuEntrega://payment?mp_return=1';
+    const app = (url.searchParams.get('app') || '').toLowerCase();
+    const deliveryId = url.searchParams.get('delivery_id') || '';
+    const isCustomer = app === 'customer' && deliveryId;
+
+    const deepLink = isCustomer
+      ? `fastfood://order-payment?id=${encodeURIComponent(deliveryId)}`
+      : 'fastfood-entregador://payment?mp_return=1';
 
     let title = 'Pagamento';
-    let body = 'Volte ao app PartiuEntrega e toque em <strong>Atualizar status do pagamento</strong> para concluir.';
+    let body = isCustomer
+      ? 'Volte ao app FastFood e confira o status do pagamento na tela do pedido.'
+      : 'Volte ao app FastFood entregador e toque em <strong>Atualizar status do pagamento</strong> para concluir.';
 
     const status = collectionStatus || mp;
     if (status === 'approved' || status === 'success') {
       title = 'Pagamento aprovado';
-      body = 'Se o Mercado Pago mostrou confirmação, volte ao app e toque em <strong>Atualizar status do pagamento</strong>.';
+      body = isCustomer
+        ? 'Se o Mercado Pago confirmou, você já pode voltar ao app FastFood.'
+        : 'Se o Mercado Pago mostrou confirmação, volte ao app e toque em <strong>Atualizar status do pagamento</strong>.';
     } else if (status === 'pending') {
       title = 'Pagamento pendente';
-      body = 'O pagamento ainda está sendo processado. Volta ao app e atualize o status em alguns instantes.';
+      body = isCustomer
+        ? 'Aguarde a confirmação ou finalize o Pix no app do banco. Depois volte ao FastFood.'
+        : 'O pagamento ainda está sendo processado. Volta ao app e atualize o status em alguns instantes.';
     } else if (status === 'failed' || status === 'failure' || status === 'rejected') {
       title = 'Pagamento não concluído';
-      body = 'Você pode tentar de novo pelo app PartiuEntrega quando quiser.';
+      body = isCustomer
+        ? 'Você pode tentar outro meio de pagamento no app FastFood.'
+        : 'Você pode tentar de novo pelo app FastFood entregador quando quiser.';
     }
 
     return new Response(htmlPage({ title, body, deepLink }), {
@@ -109,9 +123,50 @@ Deno.serve(async (req: Request) => {
       }
 
       const payment = await paymentRes.json();
+      const extRef = payment.external_reference as string | undefined;
 
-      if (payment.status === 'approved' && payment.external_reference) {
-        const [motoboyId, subscriptionId] = payment.external_reference.split('|');
+      if (extRef?.startsWith('delivery:')) {
+        const deliveryId = extRef.slice('delivery:'.length);
+
+        if (payment.status === 'approved') {
+          await supabase
+            .from('deliveries')
+            .update({
+              payment_status: 'paid',
+              mp_payment_id: String(dataId),
+              payment_method_label:
+                payment.payment_method_id === 'pix' ? 'pix' : payment.payment_method_id ? String(payment.payment_method_id) : 'card',
+            })
+            .eq('id', deliveryId);
+
+          const { data: del } = await supabase
+            .from('deliveries')
+            .select('customer_user_id')
+            .eq('id', deliveryId)
+            .single();
+
+          const uid = del?.customer_user_id as string | undefined;
+          const card = payment.card as { id?: string; last_four_digits?: string; cardholder?: { name?: string } } | undefined;
+          const custId = (payment as { customer?: { id?: string } }).customer?.id ?? (payment as { payer?: { id?: string } }).payer?.id;
+
+          if (uid && card?.id) {
+            await supabase.from('customer_mp_cards').upsert(
+              {
+                user_id: uid,
+                mercadopago_customer_id: custId != null ? String(custId) : null,
+                mercadopago_card_id: String(card.id),
+                last_four_digits: card.last_four_digits != null ? String(card.last_four_digits) : null,
+                payment_method_id: payment.payment_method_id != null ? String(payment.payment_method_id) : null,
+                cardholder_name: card.cardholder?.name ?? null,
+              },
+              { onConflict: 'user_id,mercadopago_card_id' }
+            );
+          }
+        } else if (payment.status === 'rejected' || payment.status === 'cancelled') {
+          await supabase.from('deliveries').update({ payment_status: 'failed' }).eq('id', deliveryId);
+        }
+      } else if (payment.status === 'approved' && extRef && extRef.includes('|')) {
+        const [motoboyId, subscriptionId] = extRef.split('|');
 
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 30);

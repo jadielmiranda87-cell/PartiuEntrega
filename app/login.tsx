@@ -11,6 +11,7 @@ import { getAppConfig } from '@/services/configService';
 import { openWhatsApp, openEmail } from '@/utils/links';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { APP_DISPLAY_NAME } from '@/constants/branding';
 
 type Screen = 'login' | 'forgot_email' | 'forgot_otp';
 
@@ -125,8 +126,8 @@ export default function LoginScreen() {
           <View style={styles.logoIcon}>
             <MaterialIcons name="delivery-dining" size={48} color={Colors.primary} />
           </View>
-          <Text style={styles.appName}>PartiuEntrega</Text>
-          <Text style={styles.tagline}>Conectando comércios e motoboys</Text>
+          <Text style={styles.appName}>{APP_DISPLAY_NAME}</Text>
+          <Text style={styles.tagline}>Pedidos rápidos entre comércios e entregadores</Text>
         </View>
 
         {/* ── Login Screen ── */}
@@ -338,6 +339,19 @@ export default function LoginScreen() {
               <View style={styles.registerBtnText}>
                 <Text style={styles.registerBtnTitle}>Sou Motoboy</Text>
                 <Text style={styles.registerBtnSub}>Assinatura mensal — faça entregas</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.registerBtn}
+              onPress={() => router.push('/register-customer')}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="restaurant" size={22} color={Colors.warning} />
+              <View style={styles.registerBtnText}>
+                <Text style={styles.registerBtnTitle}>Sou Cliente</Text>
+                <Text style={styles.registerBtnSub}>Peça de restaurantes cadastrados</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
             </TouchableOpacity>
