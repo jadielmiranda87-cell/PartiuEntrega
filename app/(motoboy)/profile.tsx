@@ -1,18 +1,22 @@
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
-  Share, ActivityIndicator, FlatList
+  Share, ActivityIndicator, FlatList, TextInput
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAppAuth } from '@/hooks/useAppAuth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { openWhatsApp, formatDate, formatCurrency } from '@/utils/links';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { getCashbackTransactions, CashbackTransaction, ensureReferralCode } from '@/services/cashbackService';
+import { APP_SHORT_NAME, storageKey } from '@/constants/branding';
 
-type Tab = 'profile' | 'cashback';
+type Tab = 'profile' | 'pix' | 'cashback';
+
+const pixKeyStorageKey = (motoboyId: string) => storageKey(`motoboyPixKey:${motoboyId}`);
 
 export default function MotoboyProfileScreen() {
   const { motoboyProfile, profile, signOut, refreshProfile } = useAppAuth();
@@ -22,6 +26,8 @@ export default function MotoboyProfileScreen() {
   const [transactions, setTransactions] = useState<CashbackTransaction[]>([]);
   const [loadingTx, setLoadingTx] = useState(false);
   const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [pixKey, setPixKey] = useState('');
+  const [savingPix, setSavingPix] = useState(false);
 
   // Garante que o código de cashback exista (para motoboys antigos sem referral_code)
   useFocusEffect(useCallback(() => {
@@ -53,6 +59,28 @@ export default function MotoboyProfileScreen() {
     if (activeTab === 'cashback') loadTransactions();
   }, [activeTab, loadTransactions]));
 
+  useEffect(() => {
+    if (!motoboyProfile?.id) return;
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(pixKeyStorageKey(motoboyProfile.id));
+        if (stored) setPixKey(stored);
+      } catch {
+        // ignore
+      }
+    })();
+  }, [motoboyProfile?.id]);
+
+  const handleSavePix = async () => {
+    if (!motoboyProfile?.id) return;
+    setSavingPix(true);
+    try {
+      await AsyncStorage.setItem(pixKeyStorageKey(motoboyProfile.id), pixKey.trim());
+    } finally {
+      setSavingPix(false);
+    }
+  };
+
   const handleLogout = async () => {
     await signOut();
     router.replace('/login');
@@ -61,7 +89,7 @@ export default function MotoboyProfileScreen() {
   const handleShare = async () => {
     if (!displayCode || displayCode === '--------') return;
     await Share.share({
-      message: `Use meu código de indicação no PartiuEntrega e me ajude a ganhar cashback: ${displayCode}`,
+      message: `Use meu código de indicação no ${APP_SHORT_NAME} e me ajude a ganhar cashback: ${displayCode}`,
     });
   };
 
@@ -84,6 +112,13 @@ export default function MotoboyProfileScreen() {
           >
             <MaterialIcons name="person" size={18} color={activeTab === 'profile' ? Colors.primary : Colors.textMuted} />
             <Text style={[styles.tabLabel, activeTab === 'profile' && styles.tabLabelActive]}>Dados</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'pix' && styles.tabActive]}
+            onPress={() => setActiveTab('pix')}
+          >
+            <MaterialIcons name="qr-code" size={18} color={activeTab === 'pix' ? Colors.primary : Colors.textMuted} />
+            <Text style={[styles.tabLabel, activeTab === 'pix' && styles.tabLabelActive]}>Pix</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'cashback' && styles.tabActive]}
@@ -180,6 +215,43 @@ export default function MotoboyProfileScreen() {
             <MaterialIcons name="logout" size={20} color={Colors.error} />
             <Text style={styles.logoutBtnText}>Sair da conta</Text>
           </TouchableOpacity>
+        </ScrollView>
+      ) : activeTab === 'pix' ? (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingBottom: insets.bottom + 24, paddingTop: Spacing.md }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Minha chave Pix</Text>
+            <Text style={styles.pixHint}>
+              Cadastre aqui sua chave Pix (CPF, telefone, e-mail ou aleatória). Ela será usada ao tocar em “Enviar chave Pix” na corrida.
+            </Text>
+            <TextInput
+              value={pixKey}
+              onChangeText={setPixKey}
+              placeholder="Digite sua chave Pix"
+              placeholderTextColor={Colors.textMuted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={styles.pixInput}
+            />
+            <TouchableOpacity
+              style={[styles.pixSaveBtn, savingPix && styles.btnDisabled]}
+              onPress={handleSavePix}
+              disabled={savingPix}
+              activeOpacity={0.8}
+            >
+              {savingPix ? (
+                <ActivityIndicator color={Colors.white} />
+              ) : (
+                <>
+                  <MaterialIcons name="save" size={18} color={Colors.white} />
+                  <Text style={styles.pixSaveText}>Salvar chave Pix</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       ) : (
         /* ── Cashback Tab ── */
@@ -330,6 +402,29 @@ const styles = StyleSheet.create({
   // Section
   section: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.md },
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.secondary, marginBottom: Spacing.sm },
+  pixHint: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.md },
+  pixInput: {
+    height: 48,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceElevated,
+    paddingHorizontal: Spacing.md,
+    color: Colors.text,
+    fontSize: FontSize.md,
+  },
+  pixSaveBtn: {
+    marginTop: Spacing.md,
+    height: 48,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  pixSaveText: { color: Colors.white, fontWeight: '800', fontSize: FontSize.md },
+  btnDisabled: { opacity: 0.55 },
   // Cashback balance
   balanceCard: {
     backgroundColor: Colors.surface, borderRadius: BorderRadius.lg,

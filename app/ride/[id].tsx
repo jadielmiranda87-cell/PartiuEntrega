@@ -12,6 +12,11 @@ import { Delivery } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { openWaze, openWhatsApp, formatCurrency, formatPhone } from '@/utils/links';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppAuth } from '@/hooks/useAppAuth';
+import { APP_SHORT_NAME, storageKey } from '@/constants/branding';
+
+const pixKeyStorageKey = (motoboyId: string) => storageKey(`motoboyPixKey:${motoboyId}`);
 
 export default function RideDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,6 +27,7 @@ export default function RideDetailScreen() {
 
   const { showAlert } = useAlert();
   const { isSoundPlaying, stopAlertSound } = useRides();
+  const { motoboyProfile } = useAppAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -33,13 +39,6 @@ export default function RideDetailScreen() {
   }, [id]);
 
   useEffect(() => { loadDelivery(); }, [loadDelivery]);
-
-  // Stop sound when entering ride detail (ride accepted)
-  useEffect(() => {
-    stopAlertSound();
-  }, []);
-
-
 
   // ── Cancel / refuse ride (only before collect) ───────────────────────────
   const handleCancel = () => {
@@ -112,6 +111,23 @@ export default function RideDetailScreen() {
 
   const biz = (delivery as any).businesses;
   const isCollecting = delivery.status === 'assigned';
+
+  const handleSendPix = async () => {
+    if (!motoboyProfile?.id) {
+      showAlert('Erro', 'Perfil do motoboy não carregado.');
+      return;
+    }
+    const key = (await AsyncStorage.getItem(pixKeyStorageKey(motoboyProfile.id)))?.trim();
+    if (!key) {
+      showAlert('Chave Pix não cadastrada', 'Vá em Perfil → aba Pix e cadastre sua chave Pix antes de enviar.');
+      return;
+    }
+    const msg =
+      `Olá ${delivery.customer_name}! Segue minha chave Pix para pagamento da corrida:\n\n` +
+      `${key}\n\n` +
+      `${APP_SHORT_NAME}`;
+    openWhatsApp(delivery.customer_phone, msg);
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -312,6 +328,16 @@ export default function RideDetailScreen() {
                     <Text style={styles.notesText}>{delivery.notes}</Text>
                   </View>
                 ) : null}
+
+                <TouchableOpacity
+                  style={[styles.pixBtn, !motoboyProfile?.id && styles.btnDisabled]}
+                  onPress={handleSendPix}
+                  activeOpacity={0.8}
+                  disabled={!motoboyProfile?.id}
+                >
+                  <MaterialIcons name="qr-code" size={18} color={Colors.white} />
+                  <Text style={styles.pixBtnText}>Enviar chave Pix</Text>
+                </TouchableOpacity>
               </View>
             </>
           )}
@@ -323,7 +349,7 @@ export default function RideDetailScreen() {
                 <MaterialIcons name="phone" size={18} color={Colors.secondary} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.infoTitle}>Telefone do Comércio</Text>
-                  <TouchableOpacity onPress={() => openWhatsApp(biz.phone, `Olá! Sou motoboy do PartiuEntrega, estou indo buscar o pedido.`)} activeOpacity={0.8}>
+                  <TouchableOpacity onPress={() => openWhatsApp(biz.phone, `Olá! Sou entregador do ${APP_SHORT_NAME}, estou indo buscar o pedido.`)} activeOpacity={0.8}>
                     <Text style={styles.infoPhone}>{formatPhone(biz.phone)}</Text>
                   </TouchableOpacity>
                 </View>
@@ -469,6 +495,13 @@ const styles = StyleSheet.create({
     gap: 8, borderRadius: BorderRadius.md, height: 44,
   },
   whatsappContactText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
+  pixBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderRadius: BorderRadius.md, height: 44,
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.secondary,
+  },
+  pixBtnText: { color: Colors.white, fontWeight: '800', fontSize: FontSize.sm },
 
   actionBtn: {
     flexDirection: 'row', gap: Spacing.sm, borderRadius: BorderRadius.md,

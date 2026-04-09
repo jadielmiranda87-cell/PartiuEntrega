@@ -16,7 +16,7 @@ import {
 import { useAlert } from '@/template';
 import { VerificationStatus } from '@/types';
 
-const APP_NAME = 'PartiuEntrega';
+const APP_NAME = 'FastFood';
 const SUPPORT_EMAIL = 'suporte@partiuentrega.com.br';
 
 export default function PendingApprovalScreen() {

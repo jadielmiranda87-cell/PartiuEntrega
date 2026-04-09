@@ -744,7 +744,7 @@ export default function AdminMotoboysScreen() {
                   )}
 
                   <View style={styles.actionRow}>
-                    <TouchableOpacity style={styles.whatsappBtn} onPress={() => openWhatsApp(item.phone, 'Olá! Entrando em contato pelo PartiuEntrega ADM.')} activeOpacity={0.8}>
+                    <TouchableOpacity style={styles.whatsappBtn} onPress={() => openWhatsApp(item.phone, 'Olá! Entrando em contato pelo FastFood ADM.')} activeOpacity={0.8}>
                       <MaterialIcons name="chat" size={16} color={Colors.white} />
                       <Text style={styles.whatsappBtnText}>WhatsApp</Text>
                     </TouchableOpacity>

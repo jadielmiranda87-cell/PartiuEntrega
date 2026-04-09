@@ -7,6 +7,9 @@ import {
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAlert } from '@/template';
 import { getAppConfig, updateAppConfig } from '@/services/configService';
+import { parseBillingConfig } from '@/services/billingConfig';
+import { DEFAULT_BILLING_CONFIG } from '@/constants/billingDefaults';
+import type { BillingConfig } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSupabaseClient } from '@/template';
@@ -30,6 +33,7 @@ export default function AdminConfigScreen() {
   const [refuseRule2, setRefuseRule2] = useState('60');
   const [refuseRule3, setRefuseRule3] = useState('360');
   const [contactWhatsAppPhone, setContactWhatsAppPhone] = useState('');
+  const [billing, setBilling] = useState<BillingConfig>(DEFAULT_BILLING_CONFIG);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -53,6 +57,7 @@ export default function AdminConfigScreen() {
         if (rules[2]) setRefuseRule3(String(rules[2].minutes ?? 360));
       } catch { /* use defaults */ }
       setContactWhatsAppPhone(c.contact_whatsapp_phone ?? '');
+      setBilling(parseBillingConfig(c.billing_config));
       setLoading(false);
     });
   }, []);
@@ -105,7 +110,8 @@ export default function AdminConfigScreen() {
       { count: 3, minutes: r3m },
     ]);
 
-    const [r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
+    const billingJson = JSON.stringify(billing);
+    const [r1, r2, r3, r4, r5, r6, r7, r8, r9] = await Promise.all([
       updateAppConfig('subscription_price', sp.toFixed(2)),
       updateAppConfig('price_per_km', pkm.toFixed(2)),
       updateAppConfig('min_delivery_price', mp.toFixed(2)),
@@ -114,11 +120,12 @@ export default function AdminConfigScreen() {
       updateAppConfig('accept_cooldown_minutes', String(accMin)),
       updateAppConfig('refuse_cooldown_rules', refuseCooldownRules),
       updateAppConfig('contact_whatsapp_phone', contactWhatsAppPhone.trim()),
+      updateAppConfig('billing_config', billingJson),
     ]);
     setSaving(false);
 
-    if (r1.error || r2.error || r3.error || r4.error || r5.error || r6.error || r7.error || r8.error) {
-      showAlert('Erro ao salvar', r1.error ?? r2.error ?? r3.error ?? r4.error ?? r5.error ?? r6.error ?? r7.error ?? r8.error ?? 'Tente novamente.');
+    if (r1.error || r2.error || r3.error || r4.error || r5.error || r6.error || r7.error || r8.error || r9.error) {
+      showAlert('Erro ao salvar', r1.error ?? r2.error ?? r3.error ?? r4.error ?? r5.error ?? r6.error ?? r7.error ?? r8.error ?? r9.error ?? 'Tente novamente.');
       return;
     }
 
@@ -160,11 +167,13 @@ export default function AdminConfigScreen() {
     admin: Colors.primary,
     business: Colors.info,
     motoboy: Colors.secondary,
+    customer: Colors.warning,
   };
   const TYPE_LABEL: Record<string, string> = {
     admin: 'ADM',
     business: 'Comércio',
     motoboy: 'Motoboy',
+    customer: 'Cliente',
   };
 
   if (loading) {
@@ -179,7 +188,123 @@ export default function AdminConfigScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.pageTitle}>Configurações</Text>
-        <Text style={styles.pageSubtitle}>Valores e gestão de usuários</Text>
+        <Text style={styles.pageSubtitle}>Valores, cobrança de comércios e gestão de usuários</Text>
+
+        {/* Planos de cobrança — comércio */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialIcons name="receipt-long" size={20} color={Colors.warning} />
+            <Text style={styles.sectionTitle}>Planos e taxas (comércios)</Text>
+          </View>
+          <Text style={styles.sectionDesc}>
+            Valores exibidos aos comércios e usados como referência nos repasses (pagamentos entram na conta da plataforma; após retenções, repasse ao estabelecimento).
+          </Text>
+
+          <Text style={styles.subSectionTitle}>1. Plano Básico (entrega própria)</Text>
+          <BillingTextInput
+            label="Nome do plano"
+            value={billing.plan_basic.label}
+            onChangeText={(t) => setBilling((b) => ({ ...b, plan_basic: { ...b.plan_basic, label: t } }))}
+            keyboardType="default"
+          />
+          <BillingNumInput
+            label="Comissão (% sobre o pedido)"
+            value={billing.plan_basic.commission_percent}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_basic: { ...b.plan_basic, commission_percent: n } }))}
+          />
+          <BillingNumInput
+            label="Taxa pagamento online — mín (%)"
+            value={billing.plan_basic.payment_fee_percent_min}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_basic: { ...b.plan_basic, payment_fee_percent_min: n } }))}
+          />
+          <BillingNumInput
+            label="Taxa pagamento online — máx (%)"
+            value={billing.plan_basic.payment_fee_percent_max}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_basic: { ...b.plan_basic, payment_fee_percent_max: n } }))}
+          />
+          <BillingNumInput
+            label="Mensalidade — valor mín (R$), se faturar acima do limiar"
+            value={billing.plan_basic.monthly_fee_min ?? 0}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_basic: { ...b.plan_basic, monthly_fee_min: n } }))}
+          />
+          <BillingNumInput
+            label="Mensalidade — valor máx (R$)"
+            value={billing.plan_basic.monthly_fee_max ?? 0}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_basic: { ...b.plan_basic, monthly_fee_max: n } }))}
+          />
+          <BillingNumInput
+            label="Limiar faturamento mensal (R$) para cobrar mensalidade"
+            value={billing.plan_basic.monthly_revenue_threshold}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_basic: { ...b.plan_basic, monthly_revenue_threshold: n } }))}
+          />
+
+          <Text style={[styles.subSectionTitle, { marginTop: Spacing.md }]}>2. Plano Entrega (motoboys da plataforma)</Text>
+          <BillingTextInput
+            label="Nome do plano"
+            value={billing.plan_delivery.label}
+            onChangeText={(t) => setBilling((b) => ({ ...b, plan_delivery: { ...b.plan_delivery, label: t } }))}
+            keyboardType="default"
+          />
+          <BillingNumInput
+            label="Comissão (% sobre o pedido)"
+            value={billing.plan_delivery.commission_percent}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_delivery: { ...b.plan_delivery, commission_percent: n } }))}
+          />
+          <BillingNumInput
+            label="Taxa pagamento online — mín (%)"
+            value={billing.plan_delivery.payment_fee_percent_min}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_delivery: { ...b.plan_delivery, payment_fee_percent_min: n } }))}
+          />
+          <BillingNumInput
+            label="Taxa pagamento online — máx (%)"
+            value={billing.plan_delivery.payment_fee_percent_max}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_delivery: { ...b.plan_delivery, payment_fee_percent_max: n } }))}
+          />
+          <BillingNumInput
+            label="Mensalidade fixa (R$), se faturar acima do limiar"
+            value={billing.plan_delivery.monthly_fee_fixed ?? 0}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_delivery: { ...b.plan_delivery, monthly_fee_fixed: n } }))}
+          />
+          <BillingNumInput
+            label="Limiar faturamento mensal (R$)"
+            value={billing.plan_delivery.monthly_revenue_threshold}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, plan_delivery: { ...b.plan_delivery, monthly_revenue_threshold: n } }))}
+          />
+
+          <Text style={[styles.subSectionTitle, { marginTop: Spacing.md }]}>Outras taxas e textos</Text>
+          <BillingNumInput
+            label="Taxa de serviço fixa por pedido (R$)"
+            value={billing.service_fee_per_order}
+            onChangeNum={(n) => setBilling((b) => ({ ...b, service_fee_per_order: n }))}
+          />
+          <BillingMultiline
+            label="Taxa de entrega (descrição)"
+            value={billing.delivery_fee_description}
+            onChangeText={(t) => setBilling((b) => ({ ...b, delivery_fee_description: t }))}
+          />
+          <BillingMultiline
+            label="Taxas extras (texto)"
+            value={billing.extra_fees_note}
+            onChangeText={(t) => setBilling((b) => ({ ...b, extra_fees_note: t }))}
+          />
+          <BillingTextInput
+            label="Resumo % total — entrega própria (ex.: 15–16)"
+            value={billing.summary_own_delivery_range}
+            onChangeText={(t) => setBilling((b) => ({ ...b, summary_own_delivery_range: t }))}
+            keyboardType="default"
+          />
+          <BillingTextInput
+            label="Resumo % total — plataforma entrega (ex.: 26–27)"
+            value={billing.summary_platform_delivery_range}
+            onChangeText={(t) => setBilling((b) => ({ ...b, summary_platform_delivery_range: t }))}
+            keyboardType="default"
+          />
+          <BillingMultiline
+            label="Fluxo de pagamento / repasses (texto legal-operacional)"
+            value={billing.payment_flow_description}
+            onChangeText={(t) => setBilling((b) => ({ ...b, payment_flow_description: t }))}
+          />
+        </View>
 
         {/* Preços */}
         <View style={styles.section}>
@@ -338,12 +463,92 @@ export default function AdminConfigScreen() {
               {`UPDATE user_profiles\nSET user_type = 'admin'\nWHERE email = 'seu@email.com';`}
             </Text>
           </View>
-          <Text style={styles.infoText} style={{ marginTop: 6 }}>
+          <Text style={[styles.infoText, { marginTop: 6 }]}>
             Execute no OnSpace Cloud → Data → SQL Editor
           </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+function BillingNumInput({
+  label,
+  value,
+  onChangeNum,
+}: {
+  label: string;
+  value: number;
+  onChangeNum: (n: number) => void;
+}) {
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.inputWrapper}>
+        <TextInput
+          style={[styles.input, { flex: 1 }]}
+          value={String(value)}
+          onChangeText={(t) => {
+            const n = parseFloat(t.replace(',', '.'));
+            onChangeNum(Number.isFinite(n) ? n : 0);
+          }}
+          keyboardType="decimal-pad"
+          placeholderTextColor={Colors.textMuted}
+        />
+      </View>
+    </View>
+  );
+}
+
+function BillingTextInput({
+  label,
+  value,
+  onChangeText,
+  keyboardType = 'default',
+}: {
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  keyboardType?: 'default' | 'decimal-pad';
+}) {
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={[styles.inputWrapper, { height: undefined, minHeight: 52, paddingVertical: 10 }]}>
+        <TextInput
+          style={[styles.input, { flex: 1, fontSize: FontSize.md, fontWeight: '500' }]}
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType={keyboardType}
+          placeholderTextColor={Colors.textMuted}
+        />
+      </View>
+    </View>
+  );
+}
+
+function BillingMultiline({
+  label,
+  value,
+  onChangeText,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+}) {
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={[styles.inputWrapper, { height: undefined, minHeight: 88, alignItems: 'flex-start', paddingVertical: 10 }]}>
+        <TextInput
+          style={[styles.input, { flex: 1, fontSize: FontSize.sm, fontWeight: '500', minHeight: 72 }]}
+          value={value}
+          onChangeText={onChangeText}
+          multiline
+          placeholderTextColor={Colors.textMuted}
+        />
+      </View>
+    </View>
   );
 }
 
@@ -409,6 +614,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
   pageTitle: { fontSize: FontSize.xxl, fontWeight: '700', color: Colors.text },
   pageSubtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.lg },
+  subSectionTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary, marginBottom: Spacing.sm },
   section: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, flex: 1 },

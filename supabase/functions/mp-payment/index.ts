@@ -42,7 +42,7 @@ Deno.serve(async (req: Request) => {
       },
       external_reference: `${motoboy_id}|${subscription_id}`,
       notification_url: `${supabaseUrl}/functions/v1/mp-webhook`,
-      statement_descriptor: 'PartiuEntrega',
+      statement_descriptor: 'FASTFOOD',
       expires: false,
       back_urls: {
         success: `${returnBase}?mp=success`,

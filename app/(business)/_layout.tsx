@@ -30,6 +30,20 @@ export default function BusinessLayout() {
         }}
       />
       <Tabs.Screen
+        name="catalog"
+        options={{
+          title: 'Cardápio',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="restaurant-menu" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="hours"
+        options={{
+          title: 'Horários',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="schedule" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="orders"
         options={{
           title: 'Pedidos',

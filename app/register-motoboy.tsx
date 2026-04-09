@@ -21,7 +21,9 @@ import {
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const APP_NAME = 'PartiuEntrega';
+import { APP_SHORT_NAME } from '@/constants/branding';
+
+const APP_NAME = APP_SHORT_NAME;
 
 type Step = 'form' | 'otp';
 type CnhType = 'physical' | 'digital';

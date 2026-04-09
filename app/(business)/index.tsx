@@ -13,13 +13,9 @@ import {
   getAddressSuggestions,
   geocodeAddress,
   getDirections,
-  reverseGeocode,
   GeocodeResult,
   PlacePrediction,
 } from '@/services/mapsService';
-import * as Clipboard from 'expo-clipboard';
-import * as Linking from 'expo-linking';
-import { resolveLatLngFromClipboardText } from '@/utils/parseSharedLocation';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency } from '@/utils/links';
@@ -42,7 +38,7 @@ async function getOsrmDistanceKm(
 ): Promise<number | null> {
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=false`;
-    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'PartiuEntrega/1.0' } });
+    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'FastFood-Comercio/1.0' } });
     if (!res.ok) return null;
     const json = await res.json();
     if (json.code !== 'Ok' || !json.routes?.length) return null;
@@ -102,7 +98,6 @@ export default function NewDeliveryScreen() {
   const [pricePerKm, setPricePerKm] = useState(2.5);
   const [minPrice, setMinPrice] = useState(8.0);
   const [loading, setLoading] = useState(false);
-  const [importingShareLocation, setImportingShareLocation] = useState(false);
 
   const { businessProfile, loading: authLoading } = useAppAuth();
   const { showAlert } = useAlert();
@@ -198,27 +193,6 @@ export default function NewDeliveryScreen() {
     }
   }, [businessProfile, calculateDistanceFor]);
 
-  useEffect(() => {
-    const run = async (url: string | null) => {
-      if (!url || !businessProfile) return;
-      const parsed = Linking.parse(url);
-      const path = (parsed.path ?? '').replace(/^\//, '');
-      const host = (parsed.hostname ?? '').toLowerCase();
-      if (path !== 'import-location' && host !== 'import-location') return;
-      const lat = parseFloat(String(parsed.queryParams?.lat ?? ''));
-      const lng = parseFloat(String(parsed.queryParams?.lng ?? ''));
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-      setImportingShareLocation(true);
-      const geo = await reverseGeocode(lat, lng);
-      setImportingShareLocation(false);
-      if (geo) applyGeocodeResult(geo);
-      else showAlert('Localização', 'Não foi possível converter as coordenadas em endereço.');
-    };
-    Linking.getInitialURL().then(run);
-    const sub = Linking.addEventListener('url', ({ url }) => run(url));
-    return () => sub.remove();
-  }, [businessProfile, applyGeocodeResult, showAlert]);
-
   // ── Google Places address search ──────────────────────────────────────────
 
   const handleAddressSearchChange = (text: string) => {
@@ -253,37 +227,6 @@ export default function NewDeliveryScreen() {
     }
 
     applyGeocodeResult(geo);
-  };
-
-  /** Cola o que estiver na área de transferência (link ou pin do Google Maps / WhatsApp) e preenche o endereço. */
-  const handlePasteWhatsAppLocation = async () => {
-    const raw = (await Clipboard.getStringAsync()).trim();
-    if (!raw) {
-      showAlert(
-        'Área de transferência vazia',
-        'No WhatsApp: toque e segure na localização ou no link → Copiar. Depois volte aqui e toque de novo em "Colar localização do WhatsApp".'
-      );
-      return;
-    }
-    setImportingShareLocation(true);
-    try {
-      const coords = await resolveLatLngFromClipboardText(raw);
-      if (!coords) {
-        showAlert(
-          'Não reconheci a localização',
-          'Cole um link do Google Maps, ou coordenadas como -23.55052, -46.63331. Dica: no WhatsApp use "Copiar" na mensagem com o mapa ou no link.'
-        );
-        return;
-      }
-      const geo = await reverseGeocode(coords.lat, coords.lng);
-      if (!geo) {
-        showAlert('Erro', 'Não foi possível obter o endereço a partir do pin. Tente outro link ou preencha manualmente.');
-        return;
-      }
-      applyGeocodeResult(geo);
-    } finally {
-      setImportingShareLocation(false);
-    }
   };
 
   // ── Customer search autocomplete ──────────────────────────────────────────
@@ -526,25 +469,6 @@ export default function NewDeliveryScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Endereço de Entrega</Text>
 
-          <TouchableOpacity
-            style={[styles.whatsappLocationBtn, importingShareLocation && styles.btnDisabled]}
-            onPress={handlePasteWhatsAppLocation}
-            disabled={importingShareLocation}
-            activeOpacity={0.85}
-          >
-            {importingShareLocation ? (
-              <ActivityIndicator size="small" color={Colors.white} />
-            ) : (
-              <MaterialIcons name="content-paste" size={20} color={Colors.white} />
-            )}
-            <Text style={styles.whatsappLocationBtnText}>
-              {importingShareLocation ? 'Lendo localização…' : 'Colar localização do WhatsApp'}
-            </Text>
-          </TouchableOpacity>
-          <Text style={styles.whatsappLocationHint}>
-            No WhatsApp: abra o mapa ou o link que o cliente enviou → toque e segure → Copiar. Depois toque no botão acima para preencher o endereço automaticamente.
-          </Text>
-
           {/* Google Places address search */}
           <View style={{ marginBottom: Spacing.md }}>
             <Text style={styles.label}>Buscar endereço</Text>
@@ -559,7 +483,7 @@ export default function NewDeliveryScreen() {
                   ]}
                   value={addressSearch}
                   onChangeText={handleAddressSearchChange}
-                  placeholder="Digite o endereço do cliente..."
+                  placeholder="Rua, bairro, cidade ou CEP..."
                   placeholderTextColor={Colors.textMuted}
                   returnKeyType="search"
                 />
@@ -604,8 +528,8 @@ export default function NewDeliveryScreen() {
                 </View>
               )}
             </View>
-            <Text style={{ fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 4 }}>
-              Selecione o endereço sugerido ou preencha os campos abaixo manualmente
+            <Text style={{ fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 4, lineHeight: 18 }}>
+              Digite e escolha uma sugestão para preencher rua, número, bairro e CEP automaticamente. Se preferir, preencha os campos abaixo na mão.
             </Text>
           </View>
 
@@ -763,16 +687,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md, marginBottom: Spacing.md,
   },
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.primary, marginBottom: Spacing.sm },
-  whatsappLocationBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: '#25D366', borderRadius: BorderRadius.md,
-    paddingVertical: 12, paddingHorizontal: Spacing.md, marginBottom: Spacing.sm,
-  },
-  whatsappLocationBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
-  whatsappLocationHint: {
-    fontSize: FontSize.xs, color: Colors.textMuted, lineHeight: 18,
-    marginBottom: Spacing.md,
-  },
   label: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: 6, fontWeight: '500' },
   input: {
     backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md,

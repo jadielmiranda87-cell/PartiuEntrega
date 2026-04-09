@@ -8,6 +8,7 @@ import { Platform, Alert, PermissionsAndroid } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
+import { APP_DISPLAY_NAME } from '@/constants/branding';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,7 @@ export async function requestCameraPermission(): Promise<PermissionResult> {
     return {
       granted: false,
       reason:
-        'Permissão de câmera negada permanentemente. Acesse as Configurações do dispositivo > PartiuEntrega > Câmera para habilitar.',
+        `Permissão de câmera negada permanentemente. Acesse as Configurações do dispositivo > ${APP_DISPLAY_NAME} > Câmera para habilitar.`,
     };
   }
 
@@ -55,7 +56,7 @@ export async function requestMediaLibraryPermission(): Promise<PermissionResult>
     return {
       granted: false,
       reason:
-        'Acesso à galeria negado permanentemente. Acesse Configurações > PartiuEntrega > Fotos para habilitar.',
+        `Acesso à galeria negado permanentemente. Acesse Configurações > ${APP_DISPLAY_NAME} > Fotos para habilitar.`,
     };
   }
 
@@ -82,7 +83,7 @@ export async function requestLocationPermission(): Promise<PermissionResult> {
     return {
       granted: false,
       reason:
-        'Permissão de localização negada permanentemente. Acesse Configurações > PartiuEntrega > Localização e escolha "Ao usar o app".',
+        `Permissão de localização negada permanentemente. Acesse Configurações > ${APP_DISPLAY_NAME} > Localização e escolha "Ao usar o app".`,
     };
   }
 
@@ -117,7 +118,7 @@ export async function requestNotificationPermission(): Promise<PermissionResult>
     return {
       granted: false,
       reason:
-        'Notificações bloqueadas. Acesse Configurações > PartiuEntrega > Notificações para habilitar alertas de novas entregas.',
+        `Notificações bloqueadas. Acesse Configurações > ${APP_DISPLAY_NAME} > Notificações para habilitar alertas de novas entregas.`,
     };
   }
 
@@ -154,7 +155,7 @@ export async function requestBackgroundLocationPermission(): Promise<PermissionR
     return {
       granted: false,
       reason:
-        'Localização em segundo plano negada. Acesse Configurações > PartiuEntrega > Localização para habilitar.',
+        `Localização em segundo plano negada. Acesse Configurações > ${APP_DISPLAY_NAME} > Localização para habilitar.`,
     };
   }
 
@@ -183,7 +184,7 @@ export async function requestPhonePermission(): Promise<PermissionResult> {
   const result = await PermissionsAndroid.request(perm, {
     title: 'Permissão de chamadas',
     message:
-      'O PartiuEntrega precisa dessa permissão para ligar para clientes e motoboys durante as entregas.',
+      `O ${APP_DISPLAY_NAME} precisa dessa permissão para ligar para clientes e entregadores durante as entregas.`,
     buttonNeutral: 'Perguntar depois',
     buttonNegative: 'Negar',
     buttonPositive: 'Permitir',

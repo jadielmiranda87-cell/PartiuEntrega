@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, ActivityIndicator
@@ -10,6 +10,7 @@ import { useAppAuth } from '@/hooks/useAppAuth';
 import { useAlert } from '@/template';
 import { useRides } from '@/contexts/RidesContext';
 import { getPendingDeliveries, acceptDelivery } from '@/services/deliveryService';
+import { subscribeDeliveriesTable } from '@/services/deliveryRealtimeService';
 import {
   setAcceptCooldown,
   setRefuseCooldown,
@@ -22,6 +23,7 @@ import {
 import { getAppConfig } from '@/services/configService';
 import { Delivery } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
+import { APP_SHORT_NAME } from '@/constants/branding';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency, formatDate, openWhatsApp } from '@/utils/links';
 import { requestLocationPermission, requestNotificationPermission } from '@/services/permissionsService';
@@ -35,7 +37,8 @@ function getDaysUntilExpiry(expiresAt?: string | null): number | null {
   return days;
 }
 
-const POLL_INTERVAL = 10_000;
+/** Backup se Realtime não estiver ativo no Supabase */
+const POLL_INTERVAL_MS = 4000;
 
 export default function AvailableRidesScreen() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
@@ -48,12 +51,16 @@ export default function AvailableRidesScreen() {
   const daysLeft = getDaysUntilExpiry(motoboyProfile?.subscription_expires_at);
   const showExpiryBanner = daysLeft !== null && daysLeft > 0 && daysLeft <= EXPIRY_WARN_DAYS;
   const { showAlert } = useAlert();
-  const { setNewRidesCount, clearBadge, isSoundPlaying, startAlertSound, stopAlertSound } = useRides();
+  const { setNewRidesCount, clearBadge, startAlertSound } = useRides();
   const insets = useSafeAreaInsets();
 
-  // Keep previous IDs to detect new arrivals between polls
   const knownIdsRef = useRef<Set<string>>(new Set());
+  /** Depois da 1ª carga completa: compara novas corridas; antes disso não usar `knownIds.size > 0` (bug do som quando vinha de lista vazia). */
+  const initialLoadDoneRef = useRef(false);
+  const lastMotoboyIdRef = useRef<string | undefined>(undefined);
+  const loadDeliveriesRef = useRef<(silent?: boolean) => Promise<void>>(async () => {});
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const realtimeUnsubRef = useRef<(() => void) | null>(null);
   const isFocusedRef = useRef(true);
   const permissionsRequestedRef = useRef(false);
 
@@ -82,21 +89,18 @@ export default function AvailableRidesScreen() {
     })();
   }, []);
 
-  // Stop sound when screen loses focus
-  useFocusEffect(
-    useCallback(() => {
-      return () => {
-        stopAlertSound();
-      };
-    }, [stopAlertSound])
-  );
-
   // ── Load deliveries ──────────────────────────────────────────────────────
   const loadDeliveries = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
     if (!motoboyProfile?.id) { setLoading(false); setRefreshing(false); return; }
 
     const motoboyId = motoboyProfile.id;
+    if (lastMotoboyIdRef.current !== motoboyId) {
+      lastMotoboyIdRef.current = motoboyId;
+      initialLoadDoneRef.current = false;
+      knownIdsRef.current = new Set();
+    }
+
     const [data, activeCooldowns] = await Promise.all([
       getPendingDeliveries(motoboyId),
       getActiveCooldowns(motoboyId),
@@ -105,54 +109,65 @@ export default function AvailableRidesScreen() {
     setCooldownInfo(activeCooldowns);
 
     const incomingIds = new Set(data.map((d) => d.id));
+    const previousKnown = knownIdsRef.current;
 
-    // Detect truly new rides (not seen in previous fetch)
-    if (knownIdsRef.current.size > 0) {
-      const newItems = data.filter((d) => !knownIdsRef.current.has(d.id));
-      if (newItems.length > 0) {
-        setNewRidesCount((prev) => prev + newItems.length);
-
-        // Haptic bursts
-        const bursts = Math.min(newItems.length, 3);
-        for (let i = 0; i < bursts; i++) {
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          if (i < bursts - 1) await new Promise((r) => setTimeout(r, 150));
-        }
-
-        // Start continuous alert sound
-        await startAlertSound();
+    const notifyNewRides = async (count: number) => {
+      if (count <= 0) return;
+      setNewRidesCount((prev) => prev + count);
+      const bursts = Math.min(count, 3);
+      for (let i = 0; i < bursts; i++) {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        if (i < bursts - 1) await new Promise((r) => setTimeout(r, 150));
       }
-    }
+      await startAlertSound();
+    };
 
-    // If list becomes empty, stop sound
-    if (data.length === 0) {
-      stopAlertSound();
+    if (!initialLoadDoneRef.current) {
+      if (data.length > 0) await notifyNewRides(data.length);
+      initialLoadDoneRef.current = true;
+    } else {
+      const newItems = data.filter((d) => !previousKnown.has(d.id));
+      if (newItems.length > 0) await notifyNewRides(newItems.length);
     }
 
     knownIdsRef.current = incomingIds;
     setDeliveries(data);
     setLoading(false);
     setRefreshing(false);
-  }, [motoboyProfile?.id, setNewRidesCount, startAlertSound, stopAlertSound]);
+  }, [motoboyProfile?.id, setNewRidesCount, startAlertSound]);
 
-  // Clear badge and start polling when screen gains focus
+  useEffect(() => {
+    loadDeliveriesRef.current = loadDeliveries;
+  }, [loadDeliveries]);
+
+  // Foco: Realtime + polling de backup + 1ª carga
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
       clearBadge();
       loadDeliveries(false);
 
+      if (realtimeUnsubRef.current) {
+        realtimeUnsubRef.current();
+        realtimeUnsubRef.current = null;
+      }
+      realtimeUnsubRef.current = subscribeDeliveriesTable(() => {
+        if (isFocusedRef.current) loadDeliveriesRef.current(true);
+      });
+
       pollTimerRef.current = setInterval(() => {
-        if (isFocusedRef.current) {
-          loadDeliveries(true);
-        }
-      }, POLL_INTERVAL);
+        if (isFocusedRef.current) loadDeliveriesRef.current(true);
+      }, POLL_INTERVAL_MS);
 
       return () => {
         isFocusedRef.current = false;
         if (pollTimerRef.current) {
           clearInterval(pollTimerRef.current);
           pollTimerRef.current = null;
+        }
+        if (realtimeUnsubRef.current) {
+          realtimeUnsubRef.current();
+          realtimeUnsubRef.current = null;
         }
       };
     }, [loadDeliveries, clearBadge])
@@ -161,18 +176,22 @@ export default function AvailableRidesScreen() {
   // ── Accept ride ────────────────────────────────────────────────────────
   const handleAccept = async (delivery: Delivery) => {
     if (!motoboyProfile) return;
-    stopAlertSound();
     setAccepting(delivery.id);
+
+    setDeliveries((prev) => {
+      const next = prev.filter((d) => d.id !== delivery.id);
+      knownIdsRef.current = new Set(next.map((d) => d.id));
+      return next;
+    });
 
     const { error } = await acceptDelivery(delivery.id, motoboyProfile.id);
     if (error) {
       setAccepting(null);
       showAlert('Corrida indisponível', 'Esta corrida já foi aceita por outro motoboy.');
-      loadDeliveries(false);
+      await loadDeliveries(false);
       return;
     }
 
-    // Apply accept cooldown
     const cfg = await ensureConfig();
     await setAcceptCooldown(motoboyProfile.id, cfg.acceptMinutes);
 
@@ -204,7 +223,6 @@ export default function AvailableRidesScreen() {
             setDeliveries((prev) => {
               const updated = prev.filter((d) => d.id !== delivery.id);
               knownIdsRef.current.delete(delivery.id);
-              if (updated.length === 0) stopAlertSound();
               return updated;
             });
 
@@ -221,7 +239,7 @@ export default function AvailableRidesScreen() {
         },
       ]
     );
-  }, [showAlert, stopAlertSound, motoboyProfile, ensureConfig]);
+  }, [showAlert, motoboyProfile, ensureConfig]);
 
   const handleManualRefresh = () => {
     clearBadge();
@@ -283,20 +301,9 @@ export default function AvailableRidesScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.pageTitle}>Corridas Disponíveis</Text>
-          <Text style={styles.pollLabel}>Atualiza a cada 10 s</Text>
+          <Text style={styles.pollLabel}>Atualização em tempo real</Text>
         </View>
         <View style={styles.headerActions}>
-          {/* Mute button — only visible when sound is playing */}
-          {isSoundPlaying ? (
-            <TouchableOpacity
-              onPress={() => stopAlertSound()}
-              style={styles.muteBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <MaterialIcons name="volume-off" size={20} color={Colors.warning} />
-              <Text style={styles.muteBtnText}>Silenciar</Text>
-            </TouchableOpacity>
-          ) : null}
           <TouchableOpacity
             onPress={handleManualRefresh}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -333,7 +340,7 @@ export default function AvailableRidesScreen() {
             <Text style={styles.emptySubText}>
               {globalCooldown
                 ? `Disponível em ${formatCooldownRemaining(globalCooldown.cooldownUntil)}`
-                : 'Verificando automaticamente a cada 10 segundos'}
+                : 'Novas corridas aparecem na hora; backup a cada poucos segundos'}
             </Text>
           </View>
         }
@@ -394,7 +401,7 @@ export default function AvailableRidesScreen() {
                   onPress={() =>
                     openWhatsApp(
                       biz?.phone ?? '',
-                      `Olá! Sou motoboy do PartiuEntrega e quero confirmar a entrega para ${item.customer_name}.`
+                      `Olá! Sou entregador do ${APP_SHORT_NAME} e quero confirmar a entrega para ${item.customer_name}.`
                     )
                   }
                   activeOpacity={0.8}
@@ -445,13 +452,6 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: FontSize.xxl, fontWeight: '700', color: Colors.text },
   pollLabel: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  muteBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.warning + '22', borderRadius: BorderRadius.md,
-    paddingHorizontal: 10, paddingVertical: 6,
-    borderWidth: 1, borderColor: Colors.warning + '55',
-  },
-  muteBtnText: { color: Colors.warning, fontSize: FontSize.xs, fontWeight: '700' },
 
   // Cooldown banners
   cooldownBanner: {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
   RefreshControl, ActivityIndicator
@@ -7,6 +7,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { getBusinessDeliveries } from '@/services/deliveryService';
+import { subscribeBusinessDeliveries } from '@/services/deliveryRealtimeService';
 import { Delivery } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -39,9 +40,27 @@ export default function BusinessOrdersScreen() {
     setRefreshing(false);
   }, [businessProfile]);
 
-  useFocusEffect(useCallback(() => {
-    if (!authLoading) loadDeliveries();
-  }, [loadDeliveries, authLoading]));
+  const loadDeliveriesRef = useRef(loadDeliveries);
+  useEffect(() => {
+    loadDeliveriesRef.current = loadDeliveries;
+  }, [loadDeliveries]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (authLoading || !businessProfile?.id) {
+        return () => {};
+      }
+
+      loadDeliveries();
+      const unsub = subscribeBusinessDeliveries(businessProfile.id, () => {
+        loadDeliveriesRef.current();
+      });
+
+      return () => {
+        unsub();
+      };
+    }, [authLoading, businessProfile?.id, loadDeliveries])
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);

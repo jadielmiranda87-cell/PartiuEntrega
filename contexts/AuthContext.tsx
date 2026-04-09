@@ -1,12 +1,11 @@
 import React, { createContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState } from 'react-native';
 import { getSupabaseClient } from '@/template';
 import { UserType, UserProfile, Business, Motoboy } from '@/types';
 import {
   registerSession,
   clearSession,
   isSessionValid,
-  getCurrentSessionToken,
 } from '@/services/sessionService';
 
 interface AuthContextType {
@@ -30,6 +29,16 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let t: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    t = setTimeout(() => reject(new Error(`Timeout (${ms}ms): ${label}`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (t) clearTimeout(t);
+  }) as Promise<T>;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [userType, setUserType] = useState<UserType | null>(null);
@@ -48,11 +57,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = useCallback(async (uid: string) => {
     const supabase = getSupabaseClient();
     try {
-      const { data } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', uid)
-        .single();
+      const { data } = await withTimeout(
+        supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', uid)
+          .single(),
+        12_000,
+        'fetch user_profiles'
+      );
 
       if (data) {
         setProfile(data);
@@ -60,13 +73,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUserType(uType);
 
         if (uType === 'business') {
-          const { data: biz } = await supabase.from('businesses').select('*').eq('user_id', uid).single();
+          const { data: biz } = await withTimeout(
+            supabase.from('businesses').select('*').eq('user_id', uid).single(),
+            12_000,
+            'fetch businesses'
+          );
           setBusinessProfile(biz ?? null);
           setMotoboyProfile(null);
         } else if (uType === 'motoboy') {
-          const { data: mb } = await supabase.from('motoboys').select('*').eq('user_id', uid).single();
+          const { data: mb } = await withTimeout(
+            supabase.from('motoboys').select('*').eq('user_id', uid).single(),
+            12_000,
+            'fetch motoboys'
+          );
           setMotoboyProfile(mb ?? null);
           setBusinessProfile(null);
+        } else if (uType === 'customer') {
+          setBusinessProfile(null);
+          setMotoboyProfile(null);
         } else {
           setBusinessProfile(null);
           setMotoboyProfile(null);
@@ -102,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const supabase = getSupabaseClient();
         await supabase.auth.signOut();
       }
-    }, 30_000); // check every 30 seconds
+    }, 10_000); // check every 10 seconds
   }, []);
 
   const stopSessionCheck = useCallback(() => {
@@ -117,27 +141,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = getSupabaseClient();
     let lastFetchedUid: string | null = null;
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const uid = session.user.id;
-        userIdRef.current = uid;
-        setUserId(uid);
-        setSessionKicked(false);
+    const applySession = async (event: string, session: any) => {
+      try {
+        if (session?.user) {
+          const uid = session.user.id;
+          userIdRef.current = uid;
+          setUserId(uid);
+          setSessionKicked(false);
 
-        const shouldFetch =
-          uid !== lastFetchedUid ||
-          event === 'SIGNED_IN' ||
-          event === 'USER_UPDATED' ||
-          event === 'PASSWORD_RECOVERY';
+          // Libera o loading ANTES de rede (registerSession/fetchProfile).
+          // Se await travar ao voltar do background, o app não fica preso no spinner.
+          setLoading(false);
 
-        if (shouldFetch) {
-          lastFetchedUid = uid;
-          // Register this device as the active session (overwrites any other device)
-          await registerSession(uid);
-          await fetchProfile(uid).finally(() => setLoading(false));
-          startSessionCheck(uid);
+          const shouldFetch =
+            uid !== lastFetchedUid ||
+            event === 'SIGNED_IN' ||
+            event === 'INITIAL_SESSION' ||
+            event === 'USER_UPDATED' ||
+            event === 'PASSWORD_RECOVERY' ||
+            event === 'TOKEN_REFRESHED';
+
+          if (shouldFetch) {
+            lastFetchedUid = uid;
+            void (async () => {
+              try {
+                await registerSession(uid);
+                await fetchProfile(uid);
+                startSessionCheck(uid);
+              } catch (e) {
+                console.error('applySession background sync:', e);
+              }
+            })();
+          } else {
+            startSessionCheck(uid);
+          }
+          return;
         }
-      } else {
+
         lastFetchedUid = null;
         userIdRef.current = null;
         setUserId(null);
@@ -147,14 +187,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMotoboyProfile(null);
         stopSessionCheck();
         setLoading(false);
+      } catch (e) {
+        console.error('applySession error:', e);
+        setLoading(false);
       }
+    };
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      await applySession(event, session);
     });
+
+    // Fallback: sometimes INITIAL_SESSION doesn't fire reliably on some Android
+    // process-restores. Timeout evita loading infinito se getSession travar.
+    (async () => {
+      try {
+        const { data } = await withTimeout(
+          supabase.auth.getSession(),
+          10_000,
+          'getSession bootstrap'
+        );
+        await applySession('GET_SESSION', data?.session);
+      } catch (e) {
+        console.warn('getSession bootstrap failed:', e);
+        setLoading(false);
+      }
+    })();
 
     return () => {
       listener.subscription.unsubscribe();
       stopSessionCheck();
     };
   }, [fetchProfile, startSessionCheck, stopSessionCheck]);
+
+  // ── Token auto-refresh on AppState; ao voltar, garante que loading não trave ─
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    const sub = AppState.addEventListener('change', (state) => {
+      try {
+        if (state === 'active') {
+          // @ts-expect-error supabase-js provides this at runtime
+          supabase.auth.startAutoRefresh?.();
+          void (async () => {
+            try {
+              await withTimeout(supabase.auth.getSession(), 10_000, 'getSession on resume');
+            } catch {
+              // ignore — só não deixar loading preso
+            }
+            setLoading(false);
+          })();
+        } else {
+          // @ts-expect-error supabase-js provides this at runtime
+          supabase.auth.stopAutoRefresh?.();
+        }
+      } catch {
+        // ignore
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   // ── Auth methods ──────────────────────────────────────────────────────────
 

@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const APP_NAME = 'PartiuEntrega';
+const APP_NAME = 'FastFood';
 const CONTACT_EMAIL = 'privacidade@partiuentrega.com.br';
 
 type SectionProps = { title: string; children: React.ReactNode };

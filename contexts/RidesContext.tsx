@@ -2,7 +2,7 @@ import React, {
   createContext, useContext, useState, useRef,
   useCallback, useEffect, ReactNode,
 } from 'react';
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 /** Gap between beeps in ms */
 const BEEP_INTERVAL_MS = 1000;
 
@@ -38,8 +38,11 @@ export function RidesProvider({ children }: { children: ReactNode }) {
     Audio.setAudioModeAsync({
       playsInSilentModeIOS: true,
       allowsRecordingIOS: false,
+      staysActiveInBackground: false,
       shouldDuckAndroid: false,
       playThroughEarpieceAndroid: false,
+      interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+      interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
     }).catch((e) => console.warn('[Beep] setAudioMode:', e));
   }, []);
 
