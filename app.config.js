@@ -30,7 +30,8 @@ const BRAND = 'FastFood';
 module.exports = {
   expo: {
     name: v.name,
-    slug: v.slug,
+    // Deve coincidir com o app no EAS (extra.eas.projectId); variantes usam EXPO_PUBLIC_APP_VARIANT no build.
+    slug: 'partiuentrega',
     version: '1.0.0',
     orientation: 'portrait',
     scheme: v.scheme,
