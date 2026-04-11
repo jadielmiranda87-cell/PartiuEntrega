@@ -38,48 +38,6 @@ export interface GeocodeResult {
   }>;
 }
 
-/** Campos de formulário brasileiro a partir do resultado do Google Geocoding. */
-export interface BrazilianAddressParts {
-  street: string;
-  number: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-  cep: string;
-}
-
-function pickComponent(
-  components: GeocodeResult['address_components'],
-  types: string[]
-): { long: string; short: string } {
-  for (const t of types) {
-    const c = components.find((x) => x.types.includes(t));
-    if (c) return { long: c.long_name, short: c.short_name };
-  }
-  return { long: '', short: '' };
-}
-
-/** Preenche rua, número, bairro, cidade, UF e CEP a partir do geocode (direto ou reverso). */
-export function geocodeResultToBrazilianParts(r: GeocodeResult): BrazilianAddressParts {
-  const c = r.address_components;
-  const route = pickComponent(c, ['route']).long;
-  const num = pickComponent(c, ['street_number']).long;
-  const neighborhood = pickComponent(c, ['sublocality', 'sublocality_level_1', 'administrative_area_level_4']).long;
-  const city = pickComponent(c, ['locality', 'administrative_area_level_2']).long;
-  const state = pickComponent(c, ['administrative_area_level_1']).short;
-  const cepRaw = pickComponent(c, ['postal_code']).long;
-  const cep = cepRaw.replace(/\D/g, '');
-  const firstLine = r.formatted_address.split(',')[0]?.trim() ?? '';
-  return {
-    street: route || firstLine,
-    number: num || 'S/N',
-    neighborhood: neighborhood || '—',
-    city: city || '—',
-    state: (state || 'SP').slice(0, 2).toUpperCase(),
-    cep,
-  };
-}
-
 // ─── Helper ──────────────────────────────────────────────────────────────────
 
 async function invokeEdge<T>(fn: string, body: object): Promise<{ data: T | null; error: string | null }> {

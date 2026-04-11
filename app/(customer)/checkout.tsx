@@ -1,18 +1,16 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { useCart } from '@/contexts/CartContext';
 import { getBusinessById } from '@/services/catalogService';
 import { createDelivery } from '@/services/deliveryService';
 import { getAppConfig } from '@/services/configService';
-import { geocodeAddress, reverseGeocode, geocodeResultToBrazilianParts } from '@/services/mapsService';
-import { requestLocationPermission } from '@/services/permissionsService';
+import { geocodeAddress } from '@/services/mapsService';
 import { getOsrmDistanceKm } from '@/utils/distance';
 import type { Business, OrderItemLine } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
@@ -50,10 +48,6 @@ export default function CheckoutScreen() {
   const [loadingBiz, setLoadingBiz] = useState(true);
   const [calcDist, setCalcDist] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  /** Destino da entrega em coordenadas (GPS ou último geocoding do endereço). */
-  const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [locLoading, setLocLoading] = useState(false);
-  const fillingAddressRef = useRef(false);
 
   useEffect(() => {
     if (profile?.username) setName(profile.username);
@@ -82,128 +76,32 @@ export default function CheckoutScreen() {
     : null;
   const total = subtotal + (deliveryFee ?? 0);
 
-  const runDistanceFromPoints = useCallback(
-    async (
-      bizLoc: { lat: number; lng: number },
-      dest: { lat: number; lng: number }
-    ) => {
-      const km = await getOsrmDistanceKm(bizLoc, dest);
-      if (km == null) {
-        showAlert('Distância', 'Não foi possível calcular a rota. Informe a distância em km manualmente.');
-        return false;
-      }
-      setDistanceKm(km);
-      setManualKm(String(km));
-      return true;
-    },
-    [showAlert]
-  );
-
   const computeDistance = useCallback(async () => {
     if (!business) return;
     setCalcDist(true);
     setDistanceKm(null);
     try {
-      const geoBiz = await geocodeAddress(businessGeoString(business));
-      if (!geoBiz?.location) {
-        showAlert('Endereço', 'Não foi possível localizar o restaurante. Tente mais tarde.');
-        return;
-      }
-
-      if (destCoords) {
-        const ok = await runDistanceFromPoints(geoBiz.location, destCoords);
-        if (!ok) return;
-        return;
-      }
-
       const destStr = `${customerAddress}, ${customerNumber}, ${customerNeighborhood}, ${customerCity}, ${customerState}, ${customerCep}, Brasil`;
-      const geoDest = await geocodeAddress(destStr);
-      if (!geoDest?.location) {
-        showAlert('Endereço', 'Não foi possível localizar o endereço de entrega. Confira os dados ou use a localização do aparelho.');
+      const [geoBiz, geoDest] = await Promise.all([
+        geocodeAddress(businessGeoString(business)),
+        geocodeAddress(destStr),
+      ]);
+      if (!geoBiz?.location || !geoDest?.location) {
+        showAlert('Endereço', 'Não foi possível calcular a rota. Informe a distância em km manualmente abaixo.');
+        setCalcDist(false);
         return;
       }
-      setDestCoords({ lat: geoDest.location.lat, lng: geoDest.location.lng });
-      await runDistanceFromPoints(geoBiz.location, geoDest.location);
+      const km = await getOsrmDistanceKm(geoBiz.location, geoDest.location);
+      if (km == null) {
+        showAlert('Distância', 'Informe a distância em km manualmente.');
+      } else {
+        setDistanceKm(km);
+        setManualKm(String(km));
+      }
     } finally {
       setCalcDist(false);
     }
-  }, [
-    business,
-    destCoords,
-    customerAddress,
-    customerNumber,
-    customerNeighborhood,
-    customerCity,
-    customerState,
-    customerCep,
-    showAlert,
-    runDistanceFromPoints,
-  ]);
-
-  const useMyLocation = useCallback(async () => {
-    if (!business) return;
-    if (Platform.OS === 'web') {
-      showAlert('Localização', 'No navegador, informe o endereço de entrega manualmente.');
-      return;
-    }
-    const perm = await requestLocationPermission();
-    if (!perm.granted) {
-      showAlert('Localização', perm.reason);
-      return;
-    }
-    setLocLoading(true);
-    setDistanceKm(null);
-    try {
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const lat = pos.coords.latitude;
-      const lng = pos.coords.longitude;
-      setDestCoords({ lat, lng });
-
-      const rev = await reverseGeocode(lat, lng);
-      if (rev) {
-        fillingAddressRef.current = true;
-        const p = geocodeResultToBrazilianParts(rev);
-        setCustomerAddress(p.street);
-        setCustomerNumber(p.number);
-        setCustomerNeighborhood(p.neighborhood);
-        setCustomerCity(p.city);
-        setCustomerState(p.state);
-        if (p.cep) setCustomerCep(p.cep);
-        fillingAddressRef.current = false;
-      } else {
-        showAlert(
-          'Endereço',
-          'Coordenadas obtidas, mas não foi possível preencher o endereço automaticamente. Complete os campos e calcule a taxa.'
-        );
-      }
-
-      setCalcDist(true);
-      try {
-        const geoBiz = await geocodeAddress(businessGeoString(business));
-        if (!geoBiz?.location) {
-          showAlert('Endereço', 'Não foi possível localizar o restaurante.');
-          return;
-        }
-        await runDistanceFromPoints(geoBiz.location, { lat, lng });
-      } finally {
-        setCalcDist(false);
-      }
-    } catch (e) {
-      console.warn('useMyLocation', e);
-      showAlert('Localização', 'Não foi possível obter sua posição. Verifique se o GPS está ativo.');
-      setDestCoords(null);
-    } finally {
-      setLocLoading(false);
-    }
-  }, [business, showAlert, runDistanceFromPoints]);
-
-  const clearCoordsOnAddressEdit = useCallback(() => {
-    if (fillingAddressRef.current) return;
-    setDestCoords(null);
-    setDistanceKm(null);
-  }, []);
+  }, [business, customerAddress, customerNumber, customerNeighborhood, customerCity, customerState, customerCep, showAlert]);
 
   const handleSubmit = async () => {
     if (!business || !userId || lines.length === 0) {
@@ -228,7 +126,6 @@ export default function CheckoutScreen() {
       name: l.productName,
       quantity: l.quantity,
       unit_price: l.unitPrice,
-      notes: l.notes?.trim() || undefined,
     }));
 
     setSubmitting(true);
@@ -243,8 +140,6 @@ export default function CheckoutScreen() {
       customer_city: customerCity.trim(),
       customer_state: customerState.trim().toUpperCase().slice(0, 2),
       customer_cep: customerCep.replace(/\D/g, ''),
-      delivery_lat: destCoords?.lat ?? null,
-      delivery_lng: destCoords?.lng ?? null,
       distance_km: distanceKm,
       price: Math.round(total * 100) / 100,
       order_subtotal: Math.round(subtotal * 100) / 100,
@@ -306,106 +201,17 @@ export default function CheckoutScreen() {
         <TextInput style={styles.input} placeholder="Telefone (WhatsApp)" placeholderTextColor={Colors.textMuted} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
 
         <Text style={styles.section}>Endereço de entrega</Text>
-        <Text style={styles.addressHint}>
-          Use o GPS para gerar coordenadas e preencher o endereço automaticamente, ou digite o endereço completo.
-        </Text>
-
-        <TouchableOpacity
-          style={[styles.locBtn, (locLoading || calcDist) && { opacity: 0.75 }]}
-          onPress={useMyLocation}
-          disabled={locLoading || calcDist}
-          activeOpacity={0.88}
-        >
-          {locLoading ? (
-            <ActivityIndicator color={Colors.primary} />
-          ) : (
-            <>
-              <MaterialIcons name="my-location" size={22} color={Colors.primary} />
-              <Text style={styles.locBtnText}>Usar minha localização (GPS)</Text>
-            </>
-          )}
-        </TouchableOpacity>
-
-        {destCoords ? (
-          <View style={styles.coordsPill}>
-            <MaterialIcons name="place" size={16} color={Colors.success} />
-            <Text style={styles.coordsPillText}>Local da entrega georreferenciado</Text>
-          </View>
-        ) : null}
-
-        <TextInput
-          style={styles.input}
-          placeholder="CEP"
-          placeholderTextColor={Colors.textMuted}
-          value={customerCep}
-          onChangeText={(t) => {
-            clearCoordsOnAddressEdit();
-            setCustomerCep(t);
-          }}
-          keyboardType="number-pad"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Rua / Avenida"
-          placeholderTextColor={Colors.textMuted}
-          value={customerAddress}
-          onChangeText={(t) => {
-            clearCoordsOnAddressEdit();
-            setCustomerAddress(t);
-          }}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Número"
-          placeholderTextColor={Colors.textMuted}
-          value={customerNumber}
-          onChangeText={(t) => {
-            clearCoordsOnAddressEdit();
-            setCustomerNumber(t);
-          }}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Complemento"
-          placeholderTextColor={Colors.textMuted}
-          value={customerComplement}
-          onChangeText={setCustomerComplement}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Bairro"
-          placeholderTextColor={Colors.textMuted}
-          value={customerNeighborhood}
-          onChangeText={(t) => {
-            clearCoordsOnAddressEdit();
-            setCustomerNeighborhood(t);
-          }}
-        />
+        <TextInput style={styles.input} placeholder="CEP" placeholderTextColor={Colors.textMuted} value={customerCep} onChangeText={setCustomerCep} keyboardType="number-pad" />
+        <TextInput style={styles.input} placeholder="Rua / Avenida" placeholderTextColor={Colors.textMuted} value={customerAddress} onChangeText={setCustomerAddress} />
+        <TextInput style={styles.input} placeholder="Número" placeholderTextColor={Colors.textMuted} value={customerNumber} onChangeText={setCustomerNumber} />
+        <TextInput style={styles.input} placeholder="Complemento" placeholderTextColor={Colors.textMuted} value={customerComplement} onChangeText={setCustomerComplement} />
+        <TextInput style={styles.input} placeholder="Bairro" placeholderTextColor={Colors.textMuted} value={customerNeighborhood} onChangeText={setCustomerNeighborhood} />
         <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
-          <TextInput
-            style={[styles.input, { flex: 2 }]}
-            placeholder="Cidade"
-            placeholderTextColor={Colors.textMuted}
-            value={customerCity}
-            onChangeText={(t) => {
-              clearCoordsOnAddressEdit();
-              setCustomerCity(t);
-            }}
-          />
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="UF"
-            placeholderTextColor={Colors.textMuted}
-            value={customerState}
-            onChangeText={(t) => {
-              clearCoordsOnAddressEdit();
-              setCustomerState(t.toUpperCase().slice(0, 2));
-            }}
-            maxLength={2}
-          />
+          <TextInput style={[styles.input, { flex: 2 }]} placeholder="Cidade" placeholderTextColor={Colors.textMuted} value={customerCity} onChangeText={setCustomerCity} />
+          <TextInput style={[styles.input, { flex: 1 }]} placeholder="UF" placeholderTextColor={Colors.textMuted} value={customerState} onChangeText={(t) => setCustomerState(t.toUpperCase().slice(0, 2))} maxLength={2} />
         </View>
 
-        <TouchableOpacity style={styles.calcBtn} onPress={computeDistance} disabled={calcDist || locLoading} activeOpacity={0.88}>
+        <TouchableOpacity style={styles.calcBtn} onPress={computeDistance} disabled={calcDist} activeOpacity={0.88}>
           {calcDist ? <ActivityIndicator color={Colors.white} /> : (
             <>
               <MaterialIcons name="route" size={20} color={Colors.white} />
@@ -467,32 +273,6 @@ const styles = StyleSheet.create({
   },
   closedBannerText: { flex: 1, fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
   section: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, marginTop: Spacing.md, marginBottom: Spacing.sm },
-  addressHint: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.sm, lineHeight: 20 },
-  locBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.primary + '66',
-    paddingVertical: 14,
-    marginBottom: Spacing.sm,
-  },
-  locBtnText: { color: Colors.primary, fontWeight: '800', fontSize: FontSize.md },
-  coordsPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.success + '18',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    marginBottom: Spacing.sm,
-  },
-  coordsPillText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.success },
   input: {
     backgroundColor: Colors.surface, borderRadius: BorderRadius.md, borderWidth: 1, borderColor: Colors.border,
     paddingHorizontal: Spacing.md, paddingVertical: 12, color: Colors.text, marginBottom: Spacing.sm, fontSize: FontSize.md,

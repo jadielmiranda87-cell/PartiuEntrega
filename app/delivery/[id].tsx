@@ -1,15 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAlert } from '@/template';
-import { useAppAuth } from '@/hooks/useAppAuth';
 import { getDeliveryById, updateDeliveryStatus } from '@/services/deliveryService';
-import { resolveDeliveryEndpoints } from '@/services/deliveryGeo';
-import { subscribeDeliveryRow } from '@/services/deliveryRealtimeService';
-import { CustomerDeliveryTrackingMap } from '@/components/CustomerDeliveryTrackingMap';
-import type { GeoLocation } from '@/services/mapsService';
-import { Delivery, Business } from '@/types';
+import { Delivery } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { openWhatsApp, formatCurrency, formatDate, formatPhone } from '@/utils/links';
@@ -27,15 +22,9 @@ export default function DeliveryDetailScreen() {
   const [delivery, setDelivery] = useState<Delivery | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
-  const [geoEndpoints, setGeoEndpoints] = useState<{
-    business: GeoLocation | null;
-    customer: GeoLocation | null;
-  } | null>(null);
   const { showAlert } = useAlert();
-  const { userId, userType } = useAppAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadDelivery = useCallback(async () => {
     if (!id) return;
@@ -44,36 +33,7 @@ export default function DeliveryDetailScreen() {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => {
-    if (!delivery) return;
-    const biz = (delivery as unknown as { businesses?: Business }).businesses;
-    let cancelled = false;
-    (async () => {
-      const e = await resolveDeliveryEndpoints(delivery, biz ?? null);
-      if (!cancelled) setGeoEndpoints(e);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [delivery?.id, delivery?.delivery_lat, delivery?.delivery_lng, delivery?.customer_address]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!id) return () => {};
-      loadDelivery();
-      const unsub = subscribeDeliveryRow(id, () => {
-        loadDelivery();
-      });
-      pollRef.current = setInterval(() => {
-        loadDelivery();
-      }, 8000);
-      return () => {
-        unsub();
-        if (pollRef.current) clearInterval(pollRef.current);
-        pollRef.current = null;
-      };
-    }, [id, loadDelivery])
-  );
+  useEffect(() => { loadDelivery(); }, [loadDelivery]);
 
   const handleCancel = () => {
     if (!delivery || delivery.status !== 'pending') return;
@@ -100,16 +60,6 @@ export default function DeliveryDetailScreen() {
 
   const st = STATUS_LABEL[delivery.status] ?? { label: delivery.status, color: Colors.textMuted };
   const motoboy = (delivery as any).motoboys;
-  const isCustomerViewer =
-    userType === 'customer' && userId != null && delivery.customer_user_id === userId;
-  const showTrackingMap =
-    isCustomerViewer &&
-    geoEndpoints != null &&
-    (delivery.status === 'assigned' || delivery.status === 'collected');
-  const showHandoffCode =
-    isCustomerViewer &&
-    delivery.status === 'collected' &&
-    Boolean(delivery.handoff_code);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -137,28 +87,6 @@ export default function DeliveryDetailScreen() {
             </View>
           </View>
 
-          {showTrackingMap ? (
-            <CustomerDeliveryTrackingMap
-              status={delivery.status}
-              businessCoord={geoEndpoints?.business ?? null}
-              customerCoord={geoEndpoints?.customer ?? null}
-              motoboyLat={delivery.motoboy_lat}
-              motoboyLng={delivery.motoboy_lng}
-              handoffCode={showHandoffCode ? delivery.handoff_code ?? null : null}
-            />
-          ) : null}
-
-          {showHandoffCode && delivery.handoff_code && !showTrackingMap ? (
-            <View style={styles.codeCard}>
-              <MaterialIcons name="pin" size={22} color={Colors.secondary} />
-              <Text style={styles.codeTitle}>Código para receber o pedido</Text>
-              <Text style={styles.codeSubtitle}>
-                São os 4 últimos dígitos do seu celular. Informe ao entregador ao receber; some aqui após a entrega. Não enviamos por WhatsApp.
-              </Text>
-              <Text style={styles.codeDigits}>{delivery.handoff_code}</Text>
-            </View>
-          ) : null}
-
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Cliente</Text>
             <InfoRow label="Nome" value={delivery.customer_name} />
@@ -172,7 +100,7 @@ export default function DeliveryDetailScreen() {
 
           {(() => {
             const raw = delivery.order_items as unknown;
-            let items: { name?: string; quantity?: number; unit_price?: number; notes?: string }[] = [];
+            let items: { name?: string; quantity?: number; unit_price?: number }[] = [];
             if (Array.isArray(raw)) items = raw;
             else if (typeof raw === 'string') {
               try {
@@ -186,14 +114,9 @@ export default function DeliveryDetailScreen() {
                 <Text style={styles.sectionTitle}>Itens do pedido {delivery.order_source === 'app' ? '(app)' : ''}</Text>
                 {items.map((it, idx) => (
                   <View key={idx} style={styles.itemLine}>
-                    <View style={styles.itemBody}>
-                      <Text style={styles.itemName}>
-                        {it.quantity ?? 1}x {it.name ?? 'Item'}
-                      </Text>
-                      {it.notes ? (
-                        <Text style={styles.itemNotes}>Obs.: {it.notes}</Text>
-                      ) : null}
-                    </View>
+                    <Text style={styles.itemName}>
+                      {it.quantity ?? 1}x {it.name ?? 'Item'}
+                    </Text>
                     <Text style={styles.itemPrice}>
                       {formatCurrency((it.unit_price ?? 0) * (it.quantity ?? 1))}
                     </Text>
@@ -232,19 +155,17 @@ export default function DeliveryDetailScreen() {
             </View>
           )}
 
-          {!isCustomerViewer ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Contato do Cliente</Text>
-              <TouchableOpacity
-                style={styles.whatsappRow}
-                onPress={() => openWhatsApp(delivery.customer_phone, `Olá ${delivery.customer_name}! Atualização sobre sua entrega...`)}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons name="chat" size={18} color={Colors.white} />
-                <Text style={styles.whatsappText}>Chamar Cliente no WhatsApp</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Contato do Cliente</Text>
+            <TouchableOpacity
+              style={styles.whatsappRow}
+              onPress={() => openWhatsApp(delivery.customer_phone, `Olá ${delivery.customer_name}! Atualização sobre sua entrega...`)}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="chat" size={18} color={Colors.white} />
+              <Text style={styles.whatsappText}>Chamar Cliente no WhatsApp</Text>
+            </TouchableOpacity>
+          </View>
 
           {delivery.status === 'pending' && (
             <TouchableOpacity
@@ -299,10 +220,8 @@ const styles = StyleSheet.create({
 
   section: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.md },
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.primary, marginBottom: Spacing.sm },
-  itemLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  itemBody: { flex: 1, marginRight: 8 },
-  itemName: { fontSize: FontSize.sm, color: Colors.text },
-  itemNotes: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 4 },
+  itemLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  itemName: { fontSize: FontSize.sm, color: Colors.text, flex: 1, marginRight: 8 },
   itemPrice: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text },
   subtotal: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Spacing.sm, fontWeight: '600' },
   notesText: { fontSize: FontSize.md, color: Colors.textSecondary, lineHeight: 22 },
@@ -335,24 +254,4 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.6 },
   cancelBtnText: { color: Colors.error, fontWeight: '600', fontSize: FontSize.md },
-
-  codeCard: {
-    backgroundColor: Colors.secondary + '14',
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-    borderWidth: 1.5,
-    borderColor: Colors.secondary + '55',
-    gap: Spacing.sm,
-  },
-  codeTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text },
-  codeSubtitle: { fontSize: FontSize.xs, color: Colors.textSecondary, lineHeight: 18 },
-  codeDigits: {
-    fontSize: 36,
-    letterSpacing: 8,
-    fontWeight: '900',
-    color: Colors.secondary,
-    textAlign: 'center',
-    marginTop: Spacing.sm,
-  },
 });

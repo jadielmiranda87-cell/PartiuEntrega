@@ -52,26 +52,3 @@ export function subscribeBusinessDeliveries(businessId: string, onChange: () => 
     supabase.removeChannel(channel);
   };
 }
-
-/** Um pedido por id (cliente acompanha mapa / código em tempo quase real). */
-export function subscribeDeliveryRow(deliveryId: string, onChange: () => void): () => void {
-  const supabase = getSupabaseClient();
-  const run = debounced(onChange);
-  const channel = supabase
-    .channel(`delivery-row-${deliveryId}-${Math.random().toString(36).slice(2)}`)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'deliveries',
-        filter: `id=eq.${deliveryId}`,
-      },
-      run
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}

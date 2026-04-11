@@ -1,28 +1,14 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
   ScrollView, ActivityIndicator,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
-import * as Location from 'expo-location';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAlert } from '@/template';
 import { useRides } from '@/contexts/RidesContext';
-import {
-  getDeliveryById,
-  cancelDelivery,
-  markCollectedWithHandoffCode,
-  confirmDeliveryWithCode,
-  updateMotoboyLocation,
-} from '@/services/deliveryService';
-import { resolveDeliveryEndpoints } from '@/services/deliveryGeo';
-import { DeliveryRouteMap } from '@/components/DeliveryRouteMap';
-import type { GeoLocation } from '@/services/mapsService';
-import { Delivery, Business } from '@/types';
+import { getDeliveryById, updateDeliveryStatus, cancelDelivery } from '@/services/deliveryService';
+import { Delivery } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { openWaze, openWhatsApp, formatCurrency, formatPhone } from '@/utils/links';
@@ -38,13 +24,6 @@ export default function RideDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [geoEndpoints, setGeoEndpoints] = useState<{
-    business: GeoLocation | null;
-    customer: GeoLocation | null;
-  } | null>(null);
-  const [codeModalVisible, setCodeModalVisible] = useState(false);
-  const [deliveryCodeInput, setDeliveryCodeInput] = useState('');
-  const locationSentAtRef = useRef(0);
 
   const { showAlert } = useAlert();
   const { isSoundPlaying, stopAlertSound } = useRides();
@@ -60,50 +39,6 @@ export default function RideDetailScreen() {
   }, [id]);
 
   useEffect(() => { loadDelivery(); }, [loadDelivery]);
-
-  useEffect(() => {
-    if (!delivery) return;
-    const bizRow = (delivery as unknown as { businesses?: Business }).businesses;
-    let cancelled = false;
-    (async () => {
-      const e = await resolveDeliveryEndpoints(delivery, bizRow ?? null);
-      if (!cancelled) setGeoEndpoints(e);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [delivery?.id, delivery?.delivery_lat, delivery?.delivery_lng]);
-
-  useEffect(() => {
-    if (!delivery || !motoboyProfile?.id) return;
-    if (delivery.status !== 'assigned' && delivery.status !== 'collected') return;
-
-    let sub: Location.LocationSubscription | null = null;
-    let cancelled = false;
-
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted' || cancelled) return;
-      sub = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.Balanced,
-          distanceInterval: 35,
-          timeInterval: 12000,
-        },
-        async (loc) => {
-          const now = Date.now();
-          if (now - locationSentAtRef.current < 9000) return;
-          locationSentAtRef.current = now;
-          await updateMotoboyLocation(delivery.id, motoboyProfile.id, loc.coords.latitude, loc.coords.longitude);
-        }
-      );
-    })();
-
-    return () => {
-      cancelled = true;
-      sub?.remove();
-    };
-  }, [delivery?.id, delivery?.status, motoboyProfile?.id]);
 
   // ── Cancel / refuse ride (only before collect) ───────────────────────────
   const handleCancel = () => {
@@ -133,44 +68,30 @@ export default function RideDetailScreen() {
 
   // ── Collect ──────────────────────────────────────────────────────────────
   const handleCollect = async () => {
-    if (!delivery || !motoboyProfile?.id) return;
+    if (!delivery) return;
     setUpdating(true);
-    const { data, error } = await markCollectedWithHandoffCode(delivery.id, motoboyProfile.id);
+    const { error } = await updateDeliveryStatus(delivery.id, 'collected', { collected_at: new Date().toISOString() });
     setUpdating(false);
-    if (error) {
-      showAlert('Erro', error);
-      return;
-    }
-    if (data) setDelivery(data as Delivery);
-    else {
-      const refreshed = await getDeliveryById(delivery.id);
-      if (refreshed) setDelivery(refreshed);
-    }
+    if (error) { showAlert('Erro', error); return; }
+    setDelivery({ ...delivery, status: 'collected', collected_at: new Date().toISOString() } as Delivery);
   };
 
-  const submitDeliveryCode = async () => {
-    if (!delivery || !motoboyProfile?.id) return;
-    const code = deliveryCodeInput.replace(/\D/g, '').trim();
-    if (code.length !== 4) {
-      showAlert('Código', 'Digite os 4 últimos dígitos do celular do cliente (iguais ao que ele vê no app).');
-      return;
-    }
-    setUpdating(true);
-    const { error } = await confirmDeliveryWithCode(delivery.id, motoboyProfile.id, code);
-    setUpdating(false);
-    if (error) {
-      showAlert('Não foi possível concluir', error);
-      return;
-    }
-    setCodeModalVisible(false);
-    setDeliveryCodeInput('');
-    router.replace('/(motoboy)');
-  };
-
-  // ── Deliver (pede código do cliente) ───────────────────────────────────────
-  const handleDeliver = () => {
-    setDeliveryCodeInput('');
-    setCodeModalVisible(true);
+  // ── Deliver ──────────────────────────────────────────────────────────────
+  const handleDeliver = async () => {
+    if (!delivery) return;
+    showAlert('Confirmar entrega', 'A entrega foi concluída com sucesso?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Confirmar', onPress: async () => {
+          setUpdating(true);
+          const { error } = await updateDeliveryStatus(delivery.id, 'delivered', { delivered_at: new Date().toISOString() });
+          setUpdating(false);
+          if (error) { showAlert('Erro', error); return; }
+          // Navigate back to rides list immediately
+          router.replace('/(motoboy)');
+        }
+      }
+    ]);
   };
 
   if (loading) {
@@ -243,19 +164,7 @@ export default function RideDetailScreen() {
         )}
       </View>
 
-      {geoEndpoints && (geoEndpoints.business || geoEndpoints.customer) ? (
-        <DeliveryRouteMap
-          phase={isCollecting ? 'pickup' : 'dropoff'}
-          businessCoord={geoEndpoints.business}
-          customerCoord={geoEndpoints.customer}
-        />
-      ) : null}
-
-      <ScrollView
-        style={{ flex: 1 }}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
 
         {/* ── Summary banner ── */}
         <View style={styles.summaryBanner}>
@@ -480,63 +389,22 @@ export default function RideDetailScreen() {
               </TouchableOpacity>
             </>
           ) : (
-            <>
-              {delivery.handoff_code ? (
-                <View style={styles.codeHintBox}>
-                  <MaterialIcons name="smartphone" size={20} color={Colors.textSecondary} />
-                  <Text style={styles.codeHintText}>
-                    O código são os 4 últimos dígitos do celular do cliente — ele vê no app (mapa). Não envie por WhatsApp.
-                  </Text>
-                </View>
-              ) : null}
-              <TouchableOpacity
-                style={[styles.actionBtn, styles.deliverBtn, updating && styles.btnDisabled]}
-                onPress={handleDeliver}
-                disabled={updating}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons name="pin" size={22} color={Colors.white} />
-                <Text style={styles.actionBtnText}>Finalizar entrega</Text>
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.deliverBtn, updating && styles.btnDisabled]}
+              onPress={handleDeliver}
+              disabled={updating}
+              activeOpacity={0.8}
+            >
+              {updating ? <ActivityIndicator color={Colors.white} /> : (
+                <>
+                  <MaterialIcons name="check-circle" size={22} color={Colors.white} />
+                  <Text style={styles.actionBtnText}>Confirmar Entrega</Text>
+                </>
+              )}
+            </TouchableOpacity>
           )}
         </View>
       </ScrollView>
-
-      <Modal visible={codeModalVisible} animationType="fade" transparent onRequestClose={() => setCodeModalVisible(false)}>
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Código de entrega</Text>
-            <Text style={styles.modalHint}>
-              Peça os 4 últimos dígitos do celular do cliente (ele também vê no app, na tela do mapa).
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="0000"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="number-pad"
-              maxLength={4}
-              value={deliveryCodeInput}
-              onChangeText={setDeliveryCodeInput}
-            />
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.deliverBtn, updating && styles.btnDisabled]}
-              onPress={submitDeliveryCode}
-              disabled={updating}
-            >
-              {updating ? <ActivityIndicator color={Colors.white} /> : (
-                <Text style={styles.actionBtnText}>Confirmar e concluir</Text>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalCancel} onPress={() => { setCodeModalVisible(false); setDeliveryCodeInput(''); }}>
-              <Text style={styles.modalCancelText}>Voltar</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </View>
   );
 }
@@ -651,49 +519,4 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   cancelRideBtnText: { color: Colors.error, fontSize: FontSize.md, fontWeight: '600' },
-
-  codeHintBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  codeHintText: { flex: 1, color: Colors.textSecondary, fontSize: FontSize.sm, lineHeight: 20, fontWeight: '600' },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.lg,
-  },
-  modalCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: Spacing.md,
-  },
-  modalTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
-  modalHint: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20 },
-  modalInput: {
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 14,
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: 8,
-    color: Colors.text,
-    textAlign: 'center',
-  },
-  modalCancel: { alignItems: 'center', paddingVertical: Spacing.sm },
-  modalCancelText: { color: Colors.textSecondary, fontWeight: '600', fontSize: FontSize.md },
 });

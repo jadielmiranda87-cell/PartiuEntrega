@@ -27,7 +27,7 @@ export default function CustomerCartScreen() {
         <>
           <FlatList
             data={lines}
-            keyExtractor={(l) => l.lineId}
+            keyExtractor={(l) => l.productId}
             contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingBottom: 120 }}
             ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: Colors.border }} />}
             renderItem={({ item }) => (
@@ -79,7 +79,6 @@ const styles = StyleSheet.create({
   exploreBtnText: { color: Colors.white, fontWeight: '800' },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: Spacing.md, gap: Spacing.sm },
   pName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
-  pNotes: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 4, fontStyle: 'italic' },
   pPrice: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
   qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   qty: { fontSize: FontSize.lg, fontWeight: '800', minWidth: 28, textAlign: 'center', color: Colors.text },

@@ -129,23 +129,15 @@ Deno.serve(async (req: Request) => {
         const deliveryId = extRef.slice('delivery:'.length);
 
         if (payment.status === 'approved') {
-          const { data: d0 } = await supabase
+          await supabase
             .from('deliveries')
-            .select('order_source')
-            .eq('id', deliveryId)
-            .single();
-
-          const baseUpdate: Record<string, unknown> = {
-            payment_status: 'paid',
-            mp_payment_id: String(dataId),
-            payment_method_label:
-              payment.payment_method_id === 'pix' ? 'pix' : payment.payment_method_id ? String(payment.payment_method_id) : 'card',
-          };
-          if (d0?.order_source === 'app') {
-            baseUpdate.merchant_acceptance = 'pending';
-          }
-
-          await supabase.from('deliveries').update(baseUpdate).eq('id', deliveryId);
+            .update({
+              payment_status: 'paid',
+              mp_payment_id: String(dataId),
+              payment_method_label:
+                payment.payment_method_id === 'pix' ? 'pix' : payment.payment_method_id ? String(payment.payment_method_id) : 'card',
+            })
+            .eq('id', deliveryId);
 
           const { data: del } = await supabase
             .from('deliveries')

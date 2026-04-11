@@ -1,19 +1,13 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { useAlert } from '@/template';
 
-function newLineId(): string {
-  return `L${Date.now().toString(36)}${Math.random().toString(36).slice(2, 11)}`;
-}
-
 export interface CartLine {
-  lineId: string;
   productId: string;
   businessId: string;
   businessName: string;
   productName: string;
   unitPrice: number;
   quantity: number;
-  notes?: string;
 }
 
 interface CartContextType {
@@ -22,9 +16,9 @@ interface CartContextType {
   businessName: string | null;
   subtotal: number;
   itemCount: number;
-  addLine: (line: Omit<CartLine, 'lineId' | 'quantity'> & { lineId?: string; quantity?: number }) => void;
-  setQuantity: (lineId: string, quantity: number) => void;
-  removeLine: (lineId: string) => void;
+  addLine: (line: Omit<CartLine, 'quantity'> & { quantity?: number }) => void;
+  setQuantity: (productId: string, quantity: number) => void;
+  removeLine: (productId: string) => void;
   clearCart: () => void;
 }
 
@@ -46,9 +40,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addLine = useCallback(
-    (line: Omit<CartLine, 'lineId' | 'quantity'> & { lineId?: string; quantity?: number }) => {
+    (line: Omit<CartLine, 'quantity'> & { quantity?: number }) => {
       const qty = Math.max(1, line.quantity ?? 1);
-      const notesNorm = (line.notes ?? '').trim();
       setLines((prev) => {
         if (prev.length > 0 && prev[0].businessId !== line.businessId) {
           showAlert(
@@ -58,23 +51,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
           );
           return prev;
         }
-        const i = prev.findIndex(
-          (p) => p.productId === line.productId && (p.notes ?? '').trim() === notesNorm
-        );
+        const i = prev.findIndex((p) => p.productId === line.productId);
         if (i >= 0) {
           const next = [...prev];
           next[i] = { ...next[i], quantity: next[i].quantity + qty };
           return next;
         }
         const row: CartLine = {
-          lineId: line.lineId ?? newLineId(),
           productId: line.productId,
           businessId: line.businessId,
           businessName: line.businessName,
           productName: line.productName,
           unitPrice: line.unitPrice,
           quantity: qty,
-          notes: notesNorm || undefined,
         };
         return [...prev, row];
       });
@@ -84,16 +73,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [showAlert]
   );
 
-  const setQuantity = useCallback((lineId: string, quantity: number) => {
+  const setQuantity = useCallback((productId: string, quantity: number) => {
     if (quantity < 1) {
-      setLines((prev) => prev.filter((p) => p.lineId !== lineId));
+      setLines((prev) => prev.filter((p) => p.productId !== productId));
       return;
     }
-    setLines((prev) => prev.map((p) => (p.lineId === lineId ? { ...p, quantity } : p)));
+    setLines((prev) => prev.map((p) => (p.productId === productId ? { ...p, quantity } : p)));
   }, []);
 
-  const removeLine = useCallback((lineId: string) => {
-    setLines((prev) => prev.filter((p) => p.lineId !== lineId));
+  const removeLine = useCallback((productId: string) => {
+    setLines((prev) => prev.filter((p) => p.productId !== productId));
   }, []);
 
   useEffect(() => {

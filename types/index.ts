@@ -133,8 +133,6 @@ export interface OrderItemLine {
   name: string;
   quantity: number;
   unit_price: number;
-  /** Observações do cliente (cozinha). */
-  notes?: string | null;
 }
 
 /** Pagamento online do pedido (app cliente — Mercado Pago). */
@@ -143,11 +141,7 @@ export type DeliveryPaymentStatus =
   | 'awaiting_payment'
   | 'processing'
   | 'paid'
-  | 'failed'
-  | 'refunded';
-
-/** Pedido app: após pagamento o comércio precisa aceitar antes do motoboy ver na fila. */
-export type MerchantAcceptance = 'pending' | 'accepted' | 'rejected';
+  | 'failed';
 
 export interface Delivery {
   id: string;
@@ -162,9 +156,6 @@ export interface Delivery {
   customer_city: string;
   customer_state: string;
   customer_cep: string;
-  /** Ponto de entrega (GPS ou geocoding), quando disponível. */
-  delivery_lat?: number | null;
-  delivery_lng?: number | null;
   distance_km: number;
   /** Total cobrado (itens + taxa de entrega, quando aplicável). */
   price: number;
@@ -184,14 +175,6 @@ export interface Delivery {
   mp_payment_id?: string | null;
   mp_preference_id?: string | null;
   payment_method_label?: string | null;
-  /** Pedidos app após pagamento: pending → accepted | rejected. */
-  merchant_acceptance?: MerchantAcceptance | null;
-  /** Última posição do entregador (mapa do cliente). */
-  motoboy_lat?: number | null;
-  motoboy_lng?: number | null;
-  motoboy_location_at?: string | null;
-  /** Código numérico para o cliente informar na entrega; removido após concluir. */
-  handoff_code?: string | null;
   businesses?: Business;
   motoboys?: Motoboy;
 }
@@ -223,10 +206,6 @@ export interface Product {
   name: string;
   description?: string | null;
   price: number;
-  /** Preço "de" (riscado) para promoção; opcional. */
-  compare_price?: number | null;
-  /** Máx. unidades por pedido; null = sem limite. */
-  max_per_order?: number | null;
   image_url?: string | null;
   is_active: boolean;
   sort_order: number;

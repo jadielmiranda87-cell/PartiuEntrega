@@ -71,7 +71,7 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, serviceKey);
   const { data: delivery, error: dErr } = await admin
     .from('deliveries')
-    .select('id, price, customer_name, customer_user_id, payment_status, order_source')
+    .select('id, price, customer_name, customer_user_id, payment_status')
     .eq('id', deliveryId)
     .single();
 
@@ -216,16 +216,14 @@ Deno.serve(async (req: Request) => {
       const qrCode = tid?.qr_code as string | undefined;
       const ticketUrl = tid?.ticket_url as string | undefined;
 
-      const pixPaid = pay.status === 'approved';
-      const pixUpdate: Record<string, unknown> = {
-        mp_payment_id: String(pay.id),
-        payment_status: pixPaid ? 'paid' : 'processing',
-        payment_method_label: 'pix',
-      };
-      if (pixPaid && delivery.order_source === 'app') {
-        pixUpdate.merchant_acceptance = 'pending';
-      }
-      await admin.from('deliveries').update(pixUpdate).eq('id', deliveryId);
+      await admin
+        .from('deliveries')
+        .update({
+          mp_payment_id: String(pay.id),
+          payment_status: pay.status === 'approved' ? 'paid' : 'processing',
+          payment_method_label: 'pix',
+        })
+        .eq('id', deliveryId);
 
       return new Response(
         JSON.stringify({
@@ -291,15 +289,14 @@ Deno.serve(async (req: Request) => {
       const pay = JSON.parse(payText);
       const paid = pay.status === 'approved';
 
-      const cardUpdate: Record<string, unknown> = {
-        mp_payment_id: String(pay.id),
-        payment_status: paid ? 'paid' : pay.status === 'pending' || pay.status === 'in_process' ? 'processing' : 'failed',
-        payment_method_label: 'card',
-      };
-      if (paid && delivery.order_source === 'app') {
-        cardUpdate.merchant_acceptance = 'pending';
-      }
-      await admin.from('deliveries').update(cardUpdate).eq('id', deliveryId);
+      await admin
+        .from('deliveries')
+        .update({
+          mp_payment_id: String(pay.id),
+          payment_status: paid ? 'paid' : pay.status === 'pending' || pay.status === 'in_process' ? 'processing' : 'failed',
+          payment_method_label: 'card',
+        })
+        .eq('id', deliveryId);
 
       return new Response(
         JSON.stringify({

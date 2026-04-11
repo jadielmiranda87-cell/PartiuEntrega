@@ -13,10 +13,10 @@ export default function CustomerLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: 'FastFood', headerLargeTitle: false }} />
-      <Stack.Screen name="store/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="store/[id]" options={{ title: 'Cardápio' }} />
       <Stack.Screen name="cart" options={{ title: 'Carrinho' }} />
       <Stack.Screen name="checkout" options={{ title: 'Finalizar pedido' }} />
-      <Stack.Screen name="order-payment" options={{ title: 'Método de pagamento' }} />
+      <Stack.Screen name="order-payment" options={{ title: 'Pagamento' }} />
       <Stack.Screen name="saved-cards" options={{ title: 'Cartões salvos' }} />
       <Stack.Screen name="orders" options={{ title: 'Meus pedidos' }} />
       <Stack.Screen name="profile" options={{ title: 'Conta' }} />

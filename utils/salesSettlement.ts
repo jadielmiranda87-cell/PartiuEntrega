@@ -1,128 +1,113 @@
-import type { BillingConfig, BusinessBillingPlan, Delivery } from '@/types';
+import type { BillingConfig, Delivery } from '@/types';
 import { DEFAULT_BILLING_CONFIG } from '@/constants/billingDefaults';
 
-export type SalesSettlementRow = {
-  deliveryId: string;
-  businessName: string;
-  billingPlan: BusinessBillingPlan;
-  planLabel: string;
-  orderSource: 'manual' | 'app';
-  paidOnline: boolean;
-  status: Delivery['status'];
-  gross: number;
-  /** Base da comissão % (subtotal itens no app, ou valor total). */
-  commissionBase: number;
-  commissionPct: number;
-  commissionAmount: number;
-  serviceFee: number;
-  /** Estimativa gateway (Mercado Pago) — só pedidos app pagos online. */
-  mpFeeEstimate: number;
-  /** Retenção da plataforma: comissão + taxa fixa por pedido app. */
-  appShare: number;
-  /** Estimativa do que sobra para o comércio após app e taxa gateway. */
-  merchantNet: number;
-  createdAt: string;
-};
+export { parseBillingConfig } from '@/services/billingConfig';
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+export interface SalesSettlementRow {
+  deliveryId: string;
+  businessId: string;
+  businessName: string;
+  /** Total cobrado do cliente (price). */
+  gross: number;
+  /** Comissão retida pelo app. */
+  commissionAmount: number;
+  /** Taxa fixa por pedido (só pedidos via app). */
+  serviceFee: number;
+  /** Estimativa de taxa do gateway (MP) — só pagamentos online. */
+  mpFeeEstimate: number;
+  /** Total retido pelo app (comissão + taxa pedido). */
+  appShare: number;
+  /** Estimativa de líquido do comércio (gross - appShare - mpFeeEstimate). */
+  merchantNet: number;
+  /** Pedido veio do app e está com pagamento confirmado. */
+  paidOnline: boolean;
 }
 
-export function parseBillingConfig(json: string | null | undefined): BillingConfig {
-  if (!json?.trim()) return DEFAULT_BILLING_CONFIG;
-  try {
-    const p = JSON.parse(json) as Partial<BillingConfig>;
-    if (p?.plan_basic && p?.plan_delivery) {
-      return {
-        ...DEFAULT_BILLING_CONFIG,
-        ...p,
-        plan_basic: { ...DEFAULT_BILLING_CONFIG.plan_basic, ...p.plan_basic },
-        plan_delivery: { ...DEFAULT_BILLING_CONFIG.plan_delivery, ...p.plan_delivery },
-      };
-    }
-  } catch {
-    /* ignore */
-  }
-  return DEFAULT_BILLING_CONFIG;
+export interface SettlementTotals {
+  count: number;
+  gross: number;
+  commissionAmount: number;
+  serviceFee: number;
+  mpFeeEstimate: number;
+  appShare: number;
+  merchantNet: number;
 }
 
 /**
- * Calcula bruto, retenção do app, taxa gateway estimada e líquido do comércio
- * conforme `billing_plan` do comércio e `billing_config` global (admin).
+ * Calcula o repasse/retenção de uma entrega com base no plano de cobrança do comércio.
+ * Retorna `null` para entregas canceladas ou sem valor.
  */
-export function settlementForDelivery(d: Delivery, billing: BillingConfig): SalesSettlementRow | null {
-  if (d.status === 'cancelled') return null;
+export function settlementForDelivery(
+  delivery: Delivery,
+  billing: BillingConfig
+): SalesSettlementRow | null {
+  if (delivery.status === 'cancelled') return null;
+  const gross = Number(delivery.price) || 0;
+  if (gross <= 0) return null;
 
-  const gross = Number(d.price);
-  if (!Number.isFinite(gross) || gross <= 0) return null;
+  const plan =
+    delivery.businesses?.billing_plan === 'delivery'
+      ? billing.plan_delivery
+      : billing.plan_basic;
 
-  const biz = d.businesses as { name?: string; billing_plan?: BusinessBillingPlan } | undefined;
-  const billingPlan: BusinessBillingPlan = biz?.billing_plan === 'delivery' ? 'delivery' : 'basic';
-  const plan = billingPlan === 'delivery' ? billing.plan_delivery : billing.plan_basic;
-
-  const paidOnline = d.order_source === 'app' && d.payment_status === 'paid';
-  const sub = d.order_subtotal != null ? Number(d.order_subtotal) : 0;
+  // Base de cálculo da comissão: subtotal do pedido (itens) se disponível, senão o total.
   const commissionBase =
-    d.order_source === 'app' && Number.isFinite(sub) && sub > 0 ? sub : gross;
+    delivery.order_subtotal != null && delivery.order_subtotal > 0
+      ? Number(delivery.order_subtotal)
+      : gross;
 
-  const commissionAmount = round2((commissionBase * plan.commission_percent) / 100);
-  const feeAvg = (plan.payment_fee_percent_min + plan.payment_fee_percent_max) / 2;
-  const mpFeeEstimate =
-    paidOnline && Number.isFinite(feeAvg) ? round2((gross * feeAvg) / 100) : 0;
-  const serviceFee =
-    d.order_source === 'app' ? round2(Number(billing.service_fee_per_order) || 0) : 0;
-  const appShare = round2(commissionAmount + serviceFee);
-  const merchantNet = round2(gross - appShare - mpFeeEstimate);
+  const commissionAmount = (commissionBase * plan.commission_percent) / 100;
+
+  // Taxa de serviço por pedido — só pedidos via app
+  const isApp = delivery.order_source === 'app';
+  const serviceFee = isApp ? (billing.service_fee_per_order ?? 0) : 0;
+
+  const appShare = commissionAmount + serviceFee;
+
+  // Taxa de gateway (MP) estimada — apenas pedidos app com pagamento online confirmado
+  const paidOnline = isApp && delivery.payment_status === 'paid';
+  const avgFeePercent =
+    (plan.payment_fee_percent_min + plan.payment_fee_percent_max) / 2;
+  const mpFeeEstimate = paidOnline ? (gross * avgFeePercent) / 100 : 0;
+
+  const merchantNet = Math.max(0, gross - appShare - mpFeeEstimate);
+
+  const businessName = delivery.businesses?.name ?? delivery.business_id;
 
   return {
-    deliveryId: d.id,
-    businessName: biz?.name ?? '—',
-    billingPlan,
-    planLabel: plan.label,
-    orderSource: d.order_source ?? 'manual',
-    paidOnline,
-    status: d.status,
+    deliveryId: delivery.id,
+    businessId: delivery.business_id,
+    businessName,
     gross,
-    commissionBase,
-    commissionPct: plan.commission_percent,
     commissionAmount,
     serviceFee,
     mpFeeEstimate,
     appShare,
     merchantNet,
-    createdAt: d.created_at,
+    paidOnline,
   };
 }
 
-export type SalesTotals = {
-  count: number;
-  gross: number;
-  merchantNet: number;
-  appShare: number;
-  mpFeeEstimate: number;
-  commissionAmount: number;
-  serviceFee: number;
-};
-
-export function sumSettlements(rows: SalesSettlementRow[]): SalesTotals {
-  return rows.reduce(
+/** Agrega totais de um array de linhas de liquidação. */
+export function sumSettlements(rows: SalesSettlementRow[]): SettlementTotals {
+  return rows.reduce<SettlementTotals>(
     (acc, r) => ({
       count: acc.count + 1,
-      gross: round2(acc.gross + r.gross),
-      merchantNet: round2(acc.merchantNet + r.merchantNet),
-      appShare: round2(acc.appShare + r.appShare),
-      mpFeeEstimate: round2(acc.mpFeeEstimate + r.mpFeeEstimate),
-      commissionAmount: round2(acc.commissionAmount + r.commissionAmount),
-      serviceFee: round2(acc.serviceFee + r.serviceFee),
+      gross: acc.gross + r.gross,
+      commissionAmount: acc.commissionAmount + r.commissionAmount,
+      serviceFee: acc.serviceFee + r.serviceFee,
+      mpFeeEstimate: acc.mpFeeEstimate + r.mpFeeEstimate,
+      appShare: acc.appShare + r.appShare,
+      merchantNet: acc.merchantNet + r.merchantNet,
     }),
     {
       count: 0,
       gross: 0,
-      merchantNet: 0,
-      appShare: 0,
-      mpFeeEstimate: 0,
       commissionAmount: 0,
       serviceFee: 0,
+      mpFeeEstimate: 0,
+      appShare: 0,
+      merchantNet: 0,
     }
   );
 }
