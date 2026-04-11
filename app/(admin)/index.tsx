@@ -89,10 +89,15 @@ export default function AdminDashboardScreen() {
         <StatCard icon="hourglass-top" label="Pendentes" value={stats.pending} color={Colors.warning} />
       </View>
 
-      <View style={styles.revenueCard}>
+      <TouchableOpacity
+        style={styles.revenueCard}
+        onPress={() => router.push('/(admin)/sales-report')}
+        activeOpacity={0.85}
+      >
         <Text style={styles.revenueLabel}>Faturamento Total (Entregas concluídas)</Text>
         <Text style={styles.revenueValue}>{formatCurrency(stats.revenue)}</Text>
-      </View>
+        <Text style={styles.revenueLink}>Relatório bruto / líquido / app →</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -133,4 +138,5 @@ const styles = StyleSheet.create({
   },
   revenueLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.sm },
   revenueValue: { fontSize: 36, fontWeight: '800', color: Colors.primary },
+  revenueLink: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '700', marginTop: Spacing.sm },
 });

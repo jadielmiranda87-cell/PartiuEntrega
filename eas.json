@@ -57,6 +57,7 @@
     "production": {
       "env": {
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true",
+        "EXPO_PUBLIC_APP_VARIANT": "client",
         "EXPO_PUBLIC_SUPABASE_URL": "https://vabnmsayqgqbrhedvabn.backend.onspace.ai",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlhdCI6MTc3MzM0MTQ1MywiZXhwIjoyMDg4NzAxNDUzLCJpc3MiOiJvbnNwYWNlIiwicmVmIjoidmFibm1zYXlxZ3FicmhlZHZhYm4ifQ.xw1Kc0o7YqcAmk2jK-1uCFMWdGBV6KePW2ltmzOzUlA",
         "EXPO_PUBLIC_GOOGLE_MAPS_KEY": "AIzaSyBc8HQ1X4uw6oGHRdzVsquazBQd2G4ofqs"

@@ -57,6 +57,13 @@ export default function AdminLayout() {
           tabBarIcon: ({ color, size }) => <MaterialIcons name="settings" size={size} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="sales-report"
+        options={{
+          title: 'Vendas',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="bar-chart" size={size} color={color} />,
+        }}
+      />
     </Tabs>
   );
 }

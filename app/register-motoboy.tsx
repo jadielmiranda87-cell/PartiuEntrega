@@ -22,6 +22,7 @@ import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { APP_SHORT_NAME } from '@/constants/branding';
+import { useRegisterVariantGuard } from '@/hooks/useRegisterVariantGuard';
 
 const APP_NAME = APP_SHORT_NAME;
 
@@ -163,6 +164,7 @@ function PdfPickerBtn({
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export default function RegisterMotoboyScreen() {
+  useRegisterVariantGuard('motoboy');
   const [step, setStep] = useState<Step>('form');
   const [otp, setOtp] = useState('');
   const [savedUserId, setSavedUserId] = useState('');

@@ -9,14 +9,14 @@ const VARIANTS = {
     androidPackage: 'com.fastfood.app',
   },
   business: {
-    name: 'FastFood comércio',
+    name: 'FastFood Comércio',
     slug: 'fastfood-comercio',
     scheme: 'fastfood-comercio',
     iosBundle: 'com.fastfood.comercio',
     androidPackage: 'com.fastfood.comercio',
   },
   motoboy: {
-    name: 'FastFood entregador',
+    name: 'FastFood Entregador',
     slug: 'fastfood-entregador',
     scheme: 'fastfood-entregador',
     iosBundle: 'com.fastfood.entregador',
