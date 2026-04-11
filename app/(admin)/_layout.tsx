@@ -20,6 +20,7 @@ export default function AdminLayout() {
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
@@ -51,17 +52,17 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
+        name="sales-report"
+        options={{
+          title: 'Vendas',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="bar-chart" size={Math.min(size, 22)} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="config"
         options={{
           title: 'Config',
           tabBarIcon: ({ color, size }) => <MaterialIcons name="settings" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="sales-report"
-        options={{
-          title: 'Vendas',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="bar-chart" size={size} color={color} />,
         }}
       />
     </Tabs>
