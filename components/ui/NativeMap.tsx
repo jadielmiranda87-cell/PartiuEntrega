@@ -14,6 +14,7 @@
 import React, { Component, ReactNode } from 'react';
 import { Platform, View, Text, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Colors } from '@/constants/theme';
 
 // ── Lazy require react-native-maps to avoid hard crash on import ──────────────
 let RNMapView: any = null;
@@ -104,16 +105,16 @@ const styles = StyleSheet.create({
   placeholder: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0f0f1a',
+    backgroundColor: Colors.surfaceMuted,
     gap: 8,
   },
   placeholderTitle: {
-    color: '#888',
+    color: Colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   placeholderSub: {
-    color: '#555',
+    color: Colors.textSecondary,
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,

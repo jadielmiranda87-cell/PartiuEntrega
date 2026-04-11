@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
+import * as SystemUI from 'expo-system-ui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AlertProvider } from '@/template';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -10,10 +12,15 @@ import { RidesProvider } from '@/contexts/RidesContext';
 import { requestAllRuntimePermissions } from '@/services/permissionsService';
 
 import { storageKey } from '@/constants/branding';
+import { Colors } from '@/constants/theme';
 
 const PERMISSIONS_ASKED_KEY = storageKey('runtimePermissionsAsked');
 
 export default function RootLayout() {
+  useEffect(() => {
+    SystemUI.setBackgroundColorAsync(Colors.background).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (Platform.OS === 'web') return;
     (async () => {
@@ -30,6 +37,7 @@ export default function RootLayout() {
 
   return (
     <AlertProvider>
+      <StatusBar style="dark" />
       <SafeAreaProvider>
         <AuthProvider>
           <CartProvider>

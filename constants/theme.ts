@@ -1,21 +1,30 @@
+import type { ViewStyle } from 'react-native';
+
+/** Tema claro — app de delivery/alimentação, visual atual (2024+). */
 export const Colors = {
-  primary: '#FF6B00',
-  primaryDark: '#CC5500',
-  primaryLight: '#FF8C33',
-  secondary: '#FFB300',
-  background: '#0D0D0D',
-  surface: '#1A1A1A',
-  surfaceElevated: '#242424',
-  border: '#2A2A2A',
-  text: '#FFFFFF',
-  textSecondary: '#A0A0A0',
-  textMuted: '#666666',
-  success: '#22C55E',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  info: '#3B82F6',
+  primary: '#EA580C',
+  primaryDark: '#C2410C',
+  primaryLight: '#FB923C',
+  secondary: '#D97706',
+  background: '#F8F6F3',
+  surface: '#FFFFFF',
+  surfaceElevated: '#F3F0EB',
+  surfaceMuted: '#EDE9E3',
+  border: '#E7E2DA',
+  borderStrong: '#D6D0C5',
+  text: '#1C1917',
+  textSecondary: '#57534E',
+  textMuted: '#78716C',
+  success: '#15803D',
+  warning: '#CA8A04',
+  error: '#DC2626',
+  info: '#2563EB',
   white: '#FFFFFF',
-  black: '#000000',
+  black: '#0C0A09',
+  /** Fundos suaves para alertas / destaques */
+  toneWarning: '#FFFBEB',
+  toneSuccess: '#F0FDF4',
+  toneInfo: '#EFF6FF',
 };
 
 export const Spacing = {
@@ -38,9 +47,27 @@ export const FontSize = {
 };
 
 export const BorderRadius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 24,
+  sm: 10,
+  md: 14,
+  lg: 18,
+  xl: 26,
   full: 999,
+};
+
+/** Sombras leves para cartões e CTAs (iOS + Android). */
+export const Shadows = {
+  card: {
+    shadowColor: '#1C1917',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  } satisfies ViewStyle,
+  button: {
+    shadowColor: '#EA580C',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 3,
+  } satisfies ViewStyle,
 };

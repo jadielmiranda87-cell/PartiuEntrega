@@ -35,7 +35,7 @@ module.exports = {
     version: '1.0.0',
     orientation: 'portrait',
     scheme: v.scheme,
-    userInterfaceStyle: 'dark',
+    userInterfaceStyle: 'light',
     newArchEnabled: true,
     icon: './assets/images/logo.png',
     ios: {
@@ -54,7 +54,7 @@ module.exports = {
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/images/logo.png',
-        backgroundColor: '#FF6B00',
+        backgroundColor: '#EA580C',
       },
       package: v.androidPackage,
       edgeToEdgeEnabled: true,
@@ -88,7 +88,7 @@ module.exports = {
           image: './assets/images/logo.png',
           imageWidth: 200,
           resizeMode: 'contain',
-          backgroundColor: '#0D0D0D',
+          backgroundColor: '#F8F6F3',
         },
       ],
       'expo-web-browser',
@@ -113,7 +113,7 @@ module.exports = {
         'expo-notifications',
         {
           icon: './assets/images/logo.png',
-          color: '#FF6B00',
+          color: '#EA580C',
           sounds: [],
         },
       ],

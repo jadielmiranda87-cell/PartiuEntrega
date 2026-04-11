@@ -45,7 +45,7 @@ export default function MotoboyLayout() {
           tabBarBadge: newRidesCount > 0 ? newRidesCount : undefined,
           tabBarBadgeStyle: {
             backgroundColor: Colors.primary,
-            color: '#fff',
+            color: Colors.white,
             fontSize: 11,
             fontWeight: '700',
             minWidth: 18,

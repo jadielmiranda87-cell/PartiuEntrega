@@ -17,7 +17,7 @@ function AdminScrollTabBar({ state, descriptors, navigation, insets }: BottomTab
         styles.tabBarWrap,
         {
           paddingBottom: insets.bottom + 8,
-          borderTopColor: Colors.primary + '44',
+          borderTopColor: Colors.border,
         },
       ]}
     >
@@ -142,7 +142,7 @@ export default function AdminLayout() {
 
 const styles = StyleSheet.create({
   tabBarWrap: {
-    backgroundColor: '#1A0A00',
+    backgroundColor: Colors.surface,
     borderTopWidth: 1,
     paddingTop: 8,
   },

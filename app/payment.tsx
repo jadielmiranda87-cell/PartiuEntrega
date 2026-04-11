@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   benefitRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, alignSelf: 'flex-start', marginBottom: 8 },
   benefitText: { color: Colors.text, fontSize: FontSize.md },
   noteCard: {
-    flexDirection: 'row', gap: Spacing.sm, backgroundColor: '#2a2000',
+    flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.toneWarning,
     borderRadius: BorderRadius.md, padding: Spacing.md, width: '100%',
     borderWidth: 1, borderColor: Colors.warning, marginBottom: Spacing.lg,
   },

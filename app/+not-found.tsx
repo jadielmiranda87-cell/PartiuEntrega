@@ -1,5 +1,5 @@
 /*
- * @Description: 
+ * @Description:
  */
 
 // Powered by OnSpace.AI
@@ -8,27 +8,22 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors, BorderRadius, Shadows } from '@/constants/theme';
 
 export default function NotFoundScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={['#0a0a0a', '#1a1a1a']}
-        style={StyleSheet.absoluteFillObject}
-      />
-      
+      <LinearGradient colors={[Colors.background, Colors.surfaceMuted]} style={StyleSheet.absoluteFillObject} />
+
       <View style={styles.content}>
-        <MaterialIcons name="photo-camera" size={80} color="#FFD700" />
-        <Text style={styles.title}>Page Not Found</Text>
+        <MaterialIcons name="search-off" size={80} color={Colors.primary} />
+        <Text style={styles.title}>Página não encontrada</Text>
         <Text style={styles.message}>
-          The moment you're looking for seems to have been lost in the shadows.
+          O endereço que você abriu não existe neste app. Volte ao início e tente de novo.
         </Text>
-        
-        <TouchableOpacity 
-          style={styles.homeButton}
-          onPress={() => router.push('/')}
-        >
-          <Text style={styles.homeButtonText}>Return Home</Text>
+
+        <TouchableOpacity style={styles.homeButton} onPress={() => router.push('/')} activeOpacity={0.85}>
+          <Text style={styles.homeButtonText}>Ir para o início</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -38,7 +33,7 @@ export default function NotFoundScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: Colors.background,
   },
   content: {
     flex: 1,
@@ -49,25 +44,26 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: Colors.text,
     marginTop: 20,
     marginBottom: 10,
   },
   message: {
     fontSize: 16,
-    color: '#CCCCCC',
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 40,
     lineHeight: 22,
   },
   homeButton: {
-    backgroundColor: '#FFD700',
+    backgroundColor: Colors.primary,
     paddingHorizontal: 30,
     paddingVertical: 15,
-    borderRadius: 25,
+    borderRadius: BorderRadius.lg,
+    ...Shadows.button,
   },
   homeButtonText: {
-    color: '#0a0a0a',
+    color: Colors.white,
     fontWeight: 'bold',
     fontSize: 16,
   },
