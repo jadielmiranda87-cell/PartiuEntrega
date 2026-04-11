@@ -91,7 +91,7 @@ export default function AdminDashboardScreen() {
 
       <TouchableOpacity
         style={styles.revenueCard}
-        onPress={() => router.push('/(admin)/sales-report')}
+        onPress={() => router.push('/(admin)/sales')}
         activeOpacity={0.85}
       >
         <Text style={styles.revenueLabel}>Faturamento Total (Entregas concluídas)</Text>

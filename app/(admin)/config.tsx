@@ -193,7 +193,7 @@ export default function AdminConfigScreen() {
 
         <TouchableOpacity
           style={styles.salesNavCard}
-          onPress={() => router.push('/(admin)/sales-report')}
+          onPress={() => router.push('/(admin)/sales')}
           activeOpacity={0.85}
         >
           <MaterialIcons name="bar-chart" size={24} color={Colors.primary} />
