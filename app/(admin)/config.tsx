@@ -13,7 +13,7 @@ import type { BillingConfig } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSupabaseClient } from '@/template';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 interface UserRow {
   id: string;
@@ -41,6 +41,7 @@ export default function AdminConfigScreen() {
   const [promotingId, setPromotingId] = useState<string | null>(null);
   const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   useEffect(() => {
     getAppConfig().then((c) => {
@@ -189,6 +190,19 @@ export default function AdminConfigScreen() {
       >
         <Text style={styles.pageTitle}>Configurações</Text>
         <Text style={styles.pageSubtitle}>Valores, cobrança de comércios e gestão de usuários</Text>
+
+        <TouchableOpacity
+          style={styles.salesNavCard}
+          onPress={() => router.push('/(admin)/sales-report')}
+          activeOpacity={0.85}
+        >
+          <MaterialIcons name="bar-chart" size={24} color={Colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.salesNavTitle}>Relatório de vendas e repasse</Text>
+            <Text style={styles.salesNavSub}>Bruto, líquido por comércio, retenção do app e taxas</Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
+        </TouchableOpacity>
 
         {/* Planos de cobrança — comércio */}
         <View style={styles.section}>
@@ -613,7 +627,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
   pageTitle: { fontSize: FontSize.xxl, fontWeight: '700', color: Colors.text },
-  pageSubtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.lg },
+  pageSubtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.sm },
+  salesNavCard: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: Spacing.md,
+    marginBottom: Spacing.lg, borderWidth: 1, borderColor: Colors.primary + '44',
+  },
+  salesNavTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
+  salesNavSub: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
   subSectionTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary, marginBottom: Spacing.sm },
   section: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: Spacing.md, marginBottom: Spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
