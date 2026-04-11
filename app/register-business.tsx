@@ -11,10 +11,12 @@ import { createBusinessProfile } from '@/services/businessService';
 import { getMotoboyByReferralCode } from '@/services/cashbackService';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRegisterVariantGuard } from '@/hooks/useRegisterVariantGuard';
 
 type Step = 'form' | 'otp';
 
 export default function RegisterBusinessScreen() {
+  useRegisterVariantGuard('business');
   const [step, setStep] = useState<Step>('form');
   const [pendingUserId, setPendingUserId] = useState('');
 

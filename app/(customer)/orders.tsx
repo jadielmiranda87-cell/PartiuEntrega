@@ -63,6 +63,11 @@ export default function CustomerOrdersScreen() {
           const pay = item.payment_status as string | undefined;
           const payPending =
             pay === 'awaiting_payment' || pay === 'processing' || pay === 'failed';
+          const awaitingMerchant =
+            pay === 'paid' &&
+            item.order_source === 'app' &&
+            item.merchant_acceptance === 'pending';
+          const refunded = pay === 'refunded' && item.merchant_acceptance === 'rejected';
           const onPress = () => {
             if (payPending) {
               router.push(`/(customer)/order-payment?id=${item.id}`);
@@ -78,6 +83,22 @@ export default function CustomerOrdersScreen() {
                   <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
                 </View>
               </View>
+              {awaitingMerchant ? (
+                <View style={styles.payRow}>
+                  <MaterialIcons name="hourglass-top" size={16} color={Colors.secondary} />
+                  <Text style={[styles.payHint, { color: Colors.secondary }]}>
+                    Aguardando o restaurante confirmar seu pedido
+                  </Text>
+                </View>
+              ) : null}
+              {refunded ? (
+                <View style={styles.payRow}>
+                  <MaterialIcons name="undo" size={16} color={Colors.textMuted} />
+                  <Text style={[styles.payHint, { color: Colors.textMuted }]}>
+                    Pedido recusado — valor estornado
+                  </Text>
+                </View>
+              ) : null}
               {payPending ? (
                 <View style={styles.payRow}>
                   <MaterialIcons

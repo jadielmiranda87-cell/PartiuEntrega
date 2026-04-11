@@ -12,15 +12,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCart } from '@/contexts/CartContext';
 import { formatCurrency } from '@/utils/links';
 import { formatDayScheduleLine, listDaysForDisplay, openingStatusLabel } from '@/utils/openingHours';
+
 export default function StoreMenuScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [business, setBusiness] = useState<Business | null>(null);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [byCategory, setByCategory] = useState<Record<string, Product[]>>({});
   const [loading, setLoading] = useState(true);
-  const { addLine, itemCount } = useCart();
+  const { itemCount } = useCart();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
@@ -34,16 +36,14 @@ export default function StoreMenuScreen() {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const handleAdd = (p: Product) => {
-    if (!business) return;
-    addLine({
-      productId: p.id,
-      businessId: business.id,
-      businessName: business.name,
-      productName: p.name,
-      unitPrice: Number(p.price),
+  const openProduct = (productId: string) => {
+    router.push({
+      pathname: '/(customer)/store/[id]/product/[productId]',
+      params: { id: id as string, productId },
     });
   };
 
@@ -116,30 +116,41 @@ export default function StoreMenuScreen() {
             return (
               <View key={cat.id} style={styles.section}>
                 <Text style={styles.catTitle}>{cat.name}</Text>
-                {items.map((p) => (
-                  <View key={p.id} style={styles.productRow}>
-                    {p.image_url ? (
-                      <Image
-                        source={{ uri: p.image_url }}
-                        style={styles.pImage}
-                        contentFit="cover"
-                        transition={120}
-                      />
-                    ) : (
-                      <View style={styles.pImagePlaceholder}>
-                        <MaterialIcons name="restaurant" size={28} color={Colors.textMuted} />
+                {items.map((p) => {
+                  const unit = Number(p.price);
+                  const cmp = p.compare_price != null ? Number(p.compare_price) : null;
+                  const showStrike = cmp != null && cmp > unit;
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={styles.productRow}
+                      onPress={() => openProduct(p.id)}
+                      activeOpacity={0.85}
+                    >
+                      {p.image_url ? (
+                        <Image
+                          source={{ uri: p.image_url }}
+                          style={styles.pImage}
+                          contentFit="cover"
+                          transition={120}
+                        />
+                      ) : (
+                        <View style={styles.pImagePlaceholder}>
+                          <MaterialIcons name="restaurant" size={28} color={Colors.textMuted} />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.pName}>{p.name}</Text>
+                        {p.description ? <Text style={styles.pDesc} numberOfLines={2}>{p.description}</Text> : null}
+                        <View style={styles.priceRow}>
+                          <Text style={styles.pPrice}>{formatCurrency(unit)}</Text>
+                          {showStrike ? <Text style={styles.pCompare}>{formatCurrency(cmp!)}</Text> : null}
+                        </View>
                       </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.pName}>{p.name}</Text>
-                      {p.description ? <Text style={styles.pDesc} numberOfLines={2}>{p.description}</Text> : null}
-                      <Text style={styles.pPrice}>{formatCurrency(Number(p.price))}</Text>
-                    </View>
-                    <TouchableOpacity style={styles.addBtn} onPress={() => handleAdd(p)} activeOpacity={0.85}>
-                      <MaterialIcons name="add" size={22} color={Colors.white} />
+                      <MaterialIcons name="chevron-right" size={24} color={Colors.textMuted} />
                     </TouchableOpacity>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             );
           })
@@ -198,11 +209,9 @@ const styles = StyleSheet.create({
   },
   pName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
   pDesc: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
-  pPrice: { fontSize: FontSize.md, fontWeight: '700', color: Colors.primary, marginTop: 6 },
-  addBtn: {
-    width: 40, height: 40, borderRadius: BorderRadius.md, backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 6, flexWrap: 'wrap' },
+  pPrice: { fontSize: FontSize.md, fontWeight: '800', color: Colors.success },
+  pCompare: { fontSize: FontSize.sm, color: Colors.textMuted, textDecorationLine: 'line-through' },
   emptyMenu: { alignItems: 'center', paddingVertical: 40, gap: Spacing.sm },
   emptyMenuText: { color: Colors.textSecondary, textAlign: 'center', paddingHorizontal: Spacing.lg },
   fabBar: {
