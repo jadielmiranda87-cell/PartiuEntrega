@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text },
   infoCard: {
-    flexDirection: 'row', gap: Spacing.sm, backgroundColor: '#1a2a3a',
+    flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.toneInfo,
     borderRadius: BorderRadius.md, padding: Spacing.md, alignItems: 'flex-start',
     borderWidth: 1, borderColor: Colors.info,
   },

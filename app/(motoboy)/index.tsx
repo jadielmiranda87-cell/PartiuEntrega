@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   acceptBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.md },
   expiryBanner: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    backgroundColor: '#2a1f00', borderRadius: BorderRadius.md,
+    backgroundColor: Colors.toneWarning, borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md, paddingVertical: 12,
     marginHorizontal: Spacing.md, marginBottom: Spacing.sm,
     borderWidth: 1, borderColor: Colors.warning,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.warning, borderRadius: BorderRadius.sm,
     paddingHorizontal: 10, paddingVertical: 4,
   },
-  renewBadgeText: { color: '#000', fontSize: FontSize.xs, fontWeight: '800' },
+  renewBadgeText: { color: Colors.text, fontSize: FontSize.xs, fontWeight: '800' },
   empty: { alignItems: 'center', paddingVertical: 80, gap: Spacing.sm },
   emptyText: { fontSize: FontSize.lg, fontWeight: '600', color: Colors.textSecondary },
   emptySubText: { fontSize: FontSize.sm, color: Colors.textMuted, textAlign: 'center' },

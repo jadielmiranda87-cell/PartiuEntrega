@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
   },
   priceEstimate: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    backgroundColor: '#1a2a1a', borderRadius: BorderRadius.md,
+    backgroundColor: Colors.toneSuccess, borderRadius: BorderRadius.md,
     padding: Spacing.md, marginBottom: Spacing.sm,
     borderWidth: 1, borderColor: Colors.success,
   },

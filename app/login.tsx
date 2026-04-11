@@ -9,7 +9,7 @@ import { useAppAuth } from '@/hooks/useAppAuth';
 import { useAlert } from '@/template';
 import { getAppConfig } from '@/services/configService';
 import { openWhatsApp, openEmail } from '@/utils/links';
-import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { APP_DISPLAY_NAME } from '@/constants/branding';
 
@@ -404,6 +404,9 @@ const styles = StyleSheet.create({
   form: {
     backgroundColor: Colors.surface, borderRadius: BorderRadius.lg,
     padding: Spacing.lg, marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Shadows.card,
   },
   formTitle: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.text, marginBottom: Spacing.sm },
   formSubtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.lg, lineHeight: 20 },
@@ -418,8 +421,9 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: Spacing.sm },
   input: { flex: 1, color: Colors.text, fontSize: FontSize.md },
   loginBtn: {
-    backgroundColor: Colors.primary, borderRadius: BorderRadius.md,
+    backgroundColor: Colors.primary, borderRadius: BorderRadius.lg,
     height: 52, alignItems: 'center', justifyContent: 'center', marginTop: Spacing.sm,
+    ...Shadows.button,
   },
   btnDisabled: { opacity: 0.6 },
   loginBtnText: { color: Colors.white, fontSize: FontSize.md, fontWeight: '700' },

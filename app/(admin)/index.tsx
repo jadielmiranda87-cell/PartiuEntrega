@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text },
   alertCard: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    backgroundColor: '#2a2000', borderRadius: BorderRadius.lg, padding: Spacing.md,
+    backgroundColor: Colors.toneWarning, borderRadius: BorderRadius.lg, padding: Spacing.md,
     borderWidth: 1, borderColor: Colors.warning, marginBottom: Spacing.md,
   },
   alertTitle: { color: Colors.warning, fontWeight: '700', fontSize: FontSize.md },
