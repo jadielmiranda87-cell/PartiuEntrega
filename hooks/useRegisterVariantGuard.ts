@@ -1,15 +1,28 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { APP_VARIANT, type AppVariant } from '@/constants/branding';
+import { useAppAuth } from '@/hooks/useAppAuth';
+import type { UserType } from '@/types';
 
-/** Só permite a tela de cadastro se o build for da mesma variante (ou modo `all`). */
-export function useRegisterVariantGuard(expected: AppVariant) {
+/**
+ * Redirects authenticated users away from registration screens.
+ * If a user is already logged in, they are sent to their respective home tab.
+ */
+export function useRegisterVariantGuard(variant: UserType) {
+  const { user, userType, loading: authLoading } = useAppAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (APP_VARIANT === 'all') return;
-    if (APP_VARIANT !== expected) {
-      router.replace('/login');
-    }
-  }, [expected, router]);
+    if (authLoading) return;
+    if (!user) return;
+
+    // Already authenticated — redirect to the appropriate home
+    const dest =
+      userType === 'admin' ? '/(admin)' :
+      userType === 'motoboy' ? '/(motoboy)' :
+      userType === 'business' ? '/(business)' :
+      userType === 'customer' ? '/(customer)' :
+      '/';
+
+    router.replace(dest as any);
+  }, [authLoading, user, userType]);
 }
