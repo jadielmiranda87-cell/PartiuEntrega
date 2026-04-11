@@ -4,7 +4,13 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/theme';
 
+/** Rotas só para deep link / redirect; não aparecem na barra (ex.: `href: null` no Expo). */
+const ADMIN_TAB_BAR_HIDDEN = new Set<string>(['sales-report']);
+
 function AdminScrollTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+  const focusedRoute = state.routes[state.index];
+  const focusedKey = focusedRoute?.key;
+
   return (
     <View
       style={[
@@ -21,9 +27,11 @@ function AdminScrollTabBar({ state, descriptors, navigation, insets }: BottomTab
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.tabBarScrollContent}
       >
-        {state.routes.map((route, index) => {
+        {state.routes.map((route) => {
+          if (ADMIN_TAB_BAR_HIDDEN.has(route.name)) return null;
+
           const { options } = descriptors[route.key];
-          const isFocused = state.index === index;
+          const isFocused = route.key === focusedKey;
           const active = options.tabBarActiveTintColor ?? Colors.primary;
           const inactive = options.tabBarInactiveTintColor ?? Colors.textMuted;
           const color = isFocused ? active : inactive;
@@ -108,11 +116,18 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
-        name="sales-report"
+        name="sales"
         options={{
           title: 'Vendas',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="bar-chart" size={size} color={color} />,
+          tabBarLabel: 'Vendas',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="payments" size={size ?? 22} color={color} />
+          ),
         }}
+      />
+      <Tabs.Screen
+        name="sales-report"
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="config"
