@@ -8,6 +8,7 @@ export default function BusinessLayout() {
   const insets = useSafeAreaInsets();
   return (
     <Tabs
+      initialRouteName="orders"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -22,6 +23,13 @@ export default function BusinessLayout() {
         tabBarInactiveTintColor: Colors.textMuted,
       }}
     >
+      <Tabs.Screen
+        name="orders"
+        options={{
+          title: 'Pedidos',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt-long" size={size} color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="index"
         options={{
@@ -41,13 +49,6 @@ export default function BusinessLayout() {
         options={{
           title: 'Horários',
           tabBarIcon: ({ color, size }) => <MaterialIcons name="schedule" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="orders"
-        options={{
-          title: 'Pedidos',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="receipt-long" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
