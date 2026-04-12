@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "apks:download": "node ./scripts/download-eas-apks.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "5.0.4",

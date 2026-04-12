@@ -6,8 +6,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { APP_DISPLAY_NAME } from '@/constants/branding';
 
-const APP_NAME = 'FastFood';
+const APP_NAME = APP_DISPLAY_NAME;
 const CONTACT_EMAIL = 'privacidade@partiuentrega.com.br';
 
 type SectionProps = { title: string; children: React.ReactNode };

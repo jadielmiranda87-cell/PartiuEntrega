@@ -13,7 +13,7 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 8
 export async function getOsrmDistanceKm(
   origin: { lat: number; lng: number },
   dest: { lat: number; lng: number },
-  userAgent = 'FastFood/1.0'
+  userAgent = 'FastFud/1.0'
 ): Promise<number | null> {
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=false`;

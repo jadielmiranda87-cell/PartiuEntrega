@@ -317,31 +317,47 @@ export default function LoginScreen() {
           <View style={styles.registerSection}>
             <Text style={styles.registerTitle}>Ainda não tem conta?</Text>
 
-            <TouchableOpacity
-              style={styles.registerBtn}
-              onPress={() => router.push('/register-business')}
-              activeOpacity={0.8}
-            >
-              <MaterialIcons name="store" size={22} color={Colors.primary} />
-              <View style={styles.registerBtnText}>
-                <Text style={styles.registerBtnTitle}>Sou Comércio</Text>
-                <Text style={styles.registerBtnSub}>Cadastro grátis — solicite entregas</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
-            </TouchableOpacity>
+            {(APP_VARIANT === 'all' || APP_VARIANT === 'business') && (
+              <TouchableOpacity
+                style={styles.registerBtn}
+                onPress={() => router.push('/register-business')}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="store" size={22} color={Colors.primary} />
+                <View style={styles.registerBtnText}>
+                  <Text style={styles.registerBtnTitle}>
+                    {APP_VARIANT === 'all' ? 'Sou Comércio' : 'Criar conta de comércio'}
+                  </Text>
+                  <Text style={styles.registerBtnSub}>
+                    {APP_VARIANT === 'all'
+                      ? 'App FastFood Comércio — cadastro grátis, solicite entregas'
+                      : 'Cadastro grátis — solicite entregas'}
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              style={styles.registerBtn}
-              onPress={() => router.push('/register-motoboy')}
-              activeOpacity={0.8}
-            >
-              <MaterialIcons name="two-wheeler" size={22} color={Colors.secondary} />
-              <View style={styles.registerBtnText}>
-                <Text style={styles.registerBtnTitle}>Sou Motoboy</Text>
-                <Text style={styles.registerBtnSub}>Assinatura mensal — faça entregas</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
-            </TouchableOpacity>
+            {(APP_VARIANT === 'all' || APP_VARIANT === 'motoboy') && (
+              <TouchableOpacity
+                style={styles.registerBtn}
+                onPress={() => router.push('/register-motoboy')}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="two-wheeler" size={22} color={Colors.secondary} />
+                <View style={styles.registerBtnText}>
+                  <Text style={styles.registerBtnTitle}>
+                    {APP_VARIANT === 'all' ? 'Sou Entregador' : 'Criar conta de entregador'}
+                  </Text>
+                  <Text style={styles.registerBtnSub}>
+                    {APP_VARIANT === 'all'
+                      ? 'App FastFood Entregador — assinatura mensal, faça entregas'
+                      : 'Assinatura mensal — faça entregas'}
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.registerBtn}

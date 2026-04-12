@@ -1,12 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { Colors } from '@/constants/theme';
+import { isUserTypeAllowedInAppVariant } from '@/constants/branding';
 
 export default function RootIndex() {
   const { userId, userType, motoboyProfile, loading, sessionKicked, refreshProfile, signOut } = useAppAuth();
   const router = useRouter();
+  const variantMismatchHandled = useRef(false);
+
+  useEffect(() => {
+    if (!userId) variantMismatchHandled.current = false;
+  }, [userId]);
 
   // Handle session kicked (another device logged in)
   useEffect(() => {
@@ -19,6 +25,27 @@ export default function RootIndex() {
     }
   }, [sessionKicked]);
 
+  // Conta de outro perfil neste APK (ex.: login de cliente no app Entregador)
+  useEffect(() => {
+    if (loading || !userId || !userType) return;
+    if (isUserTypeAllowedInAppVariant(userType)) return;
+    if (variantMismatchHandled.current) return;
+    variantMismatchHandled.current = true;
+    (async () => {
+      try {
+        await signOut();
+      } catch {
+        // ignore
+      }
+      router.replace('/login');
+      Alert.alert(
+        'App incorreto',
+        'Esta conta não é para este aplicativo. Cliente: app FastFud. Comércio: app FastFood Comércio. Entregador: app FastFood Entregador.',
+        [{ text: 'OK' }]
+      );
+    })();
+  }, [loading, userId, userType, signOut, router]);
+
   useEffect(() => {
     if (loading) return;
     if (sessionKicked) return; // handled above
@@ -30,6 +57,10 @@ export default function RootIndex() {
 
     // userId is known but userType is not. Avoid infinite loading by retrying
     // profile fetch, then falling back to login if still unresolved.
+    if (!isUserTypeAllowedInAppVariant(userType)) {
+      return;
+    }
+
     if (!userType) {
       const t = setTimeout(async () => {
         try {
