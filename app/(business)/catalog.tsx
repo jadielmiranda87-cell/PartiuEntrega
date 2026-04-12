@@ -1,7 +1,17 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator,
-  KeyboardAvoidingView, Platform, Image,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Image,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -33,9 +43,15 @@ export default function BusinessCatalogScreen() {
   const [newCat, setNewCat] = useState('');
   const [adding, setAdding] = useState(false);
   const [pName, setPName] = useState('');
+  const [pDesc, setPDesc] = useState('');
   const [pPrice, setPPrice] = useState('');
   const [expandCatId, setExpandCatId] = useState<string | null>(null);
   const [uploadingProductId, setUploadingProductId] = useState<string | null>(null);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [eName, setEName] = useState('');
+  const [eDesc, setEDesc] = useState('');
+  const [ePrice, setEPrice] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!businessProfile?.id) {
@@ -107,7 +123,7 @@ export default function BusinessCatalogScreen() {
       business_id: businessProfile.id,
       category_id: categoryId,
       name: pName.trim(),
-      description: null,
+      description: pDesc.trim() ? pDesc.trim() : null,
       price,
       image_url: null,
       is_active: true,
@@ -119,8 +135,53 @@ export default function BusinessCatalogScreen() {
       return;
     }
     setPName('');
+    setPDesc('');
     setPPrice('');
     setExpandCatId(null);
+    load();
+  };
+
+  const openEditProduct = (p: Product) => {
+    setEditProduct(p);
+    setEName(p.name);
+    setEDesc(p.description ?? '');
+    setEPrice(
+      Number.isInteger(Number(p.price))
+        ? String(Number(p.price))
+        : String(Number(p.price)).replace('.', ',')
+    );
+  };
+
+  const closeEditProduct = () => {
+    setEditProduct(null);
+    setEName('');
+    setEDesc('');
+    setEPrice('');
+  };
+
+  const handleSaveEditProduct = async () => {
+    if (!editProduct) return;
+    if (!eName.trim()) {
+      showAlert('Produto', 'Informe o nome.');
+      return;
+    }
+    const price = parseFloat(ePrice.replace(',', '.'));
+    if (Number.isNaN(price) || price < 0) {
+      showAlert('Preço', 'Informe um preço válido.');
+      return;
+    }
+    setEditSaving(true);
+    const { error } = await updateProduct(editProduct.id, {
+      name: eName.trim(),
+      description: eDesc.trim() ? eDesc.trim() : null,
+      price,
+    });
+    setEditSaving(false);
+    if (error) {
+      showAlert('Erro', error);
+      return;
+    }
+    closeEditProduct();
     load();
   };
 
@@ -144,6 +205,68 @@ export default function BusinessCatalogScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Modal visible={editProduct != null} animationType="fade" transparent onRequestClose={closeEditProduct}>
+        <View style={styles.modalRoot}>
+          <Pressable style={styles.modalBackdrop} onPress={closeEditProduct} />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalSheet}
+          >
+            <View style={[styles.modalCard, { paddingBottom: insets.bottom + Spacing.md }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Editar produto</Text>
+                <TouchableOpacity onPress={closeEditProduct} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                  <MaterialIcons name="close" size={24} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <Text style={styles.modalLabel}>Nome</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={eName}
+                  onChangeText={setEName}
+                  placeholder="Nome do produto"
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <Text style={styles.modalLabel}>Descrição (opcional)</Text>
+                <TextInput
+                  style={styles.modalDescInput}
+                  value={eDesc}
+                  onChangeText={setEDesc}
+                  placeholder="Descrição"
+                  placeholderTextColor={Colors.textMuted}
+                  multiline
+                  textAlignVertical="top"
+                />
+                <Text style={styles.modalLabel}>Preço</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={ePrice}
+                  onChangeText={setEPrice}
+                  placeholder="0,00"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="decimal-pad"
+                />
+              </ScrollView>
+              <TouchableOpacity
+                style={[styles.savePbtn, editSaving && { opacity: 0.6 }, { marginTop: Spacing.md }]}
+                onPress={handleSaveEditProduct}
+                disabled={editSaving}
+              >
+                {editSaving ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <Text style={styles.savePbtnText}>Salvar alterações</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={closeEditProduct} disabled={editSaving}>
+                <Text style={styles.modalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ paddingTop: insets.top + 16, paddingHorizontal: Spacing.md, paddingBottom: insets.bottom + 24 }}
@@ -178,8 +301,12 @@ export default function BusinessCatalogScreen() {
                   onPress={() => {
                     if (expandCatId === cat.id) {
                       setExpandCatId(null);
+                      setPName('');
+                      setPDesc('');
+                      setPPrice('');
                     } else {
                       setPName('');
+                      setPDesc('');
                       setPPrice('');
                       setExpandCatId(cat.id);
                     }
@@ -218,6 +345,15 @@ export default function BusinessCatalogScreen() {
                   onChangeText={setPName}
                 />
                 <TextInput
+                  style={styles.descInput}
+                  placeholder="Descrição (opcional)"
+                  placeholderTextColor={Colors.textMuted}
+                  value={expandCatId === cat.id ? pDesc : ''}
+                  onChangeText={setPDesc}
+                  multiline
+                  textAlignVertical="top"
+                />
+                <TextInput
                   style={styles.smallInput}
                   placeholder="Preço"
                   placeholderTextColor={Colors.textMuted}
@@ -233,17 +369,23 @@ export default function BusinessCatalogScreen() {
 
             {productsByCat(cat.id).map((p) => (
               <View key={p.id} style={styles.productRow}>
-                {p.image_url ? (
-                  <Image source={{ uri: p.image_url }} style={styles.pThumb} />
-                ) : (
-                  <View style={styles.pThumbPlaceholder}>
-                    <MaterialIcons name="fastfood" size={22} color={Colors.textMuted} />
-                  </View>
-                )}
-                <View style={{ flex: 1 }}>
+                <TouchableOpacity onPress={() => openEditProduct(p)} activeOpacity={0.85} accessibilityLabel="Editar produto">
+                  {p.image_url ? (
+                    <Image source={{ uri: p.image_url }} style={styles.pThumb} />
+                  ) : (
+                    <View style={styles.pThumbPlaceholder}>
+                      <MaterialIcons name="fastfood" size={22} color={Colors.textMuted} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.productMainTap} onPress={() => openEditProduct(p)} activeOpacity={0.7}>
                   <Text style={styles.pName}>{p.name}</Text>
+                  {p.description ? (
+                    <Text style={styles.pDesc} numberOfLines={2}>{p.description}</Text>
+                  ) : null}
                   <Text style={styles.pPrice}>{formatCurrency(Number(p.price))}</Text>
-                </View>
+                  <Text style={styles.pEditHint}>Toque para editar</Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.iconBtn}
                   onPress={() => handleProductImage(p)}
@@ -309,6 +451,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, borderWidth: 1,
     borderColor: Colors.border, paddingHorizontal: Spacing.md, height: 44, color: Colors.text,
   },
+  descInput: {
+    backgroundColor: Colors.surfaceElevated, borderRadius: BorderRadius.md, borderWidth: 1,
+    borderColor: Colors.border, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    minHeight: 72, color: Colors.text, fontSize: FontSize.sm,
+  },
   savePbtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.md, paddingVertical: 12, alignItems: 'center' },
   savePbtnText: { color: Colors.white, fontWeight: '800' },
   productRow: {
@@ -326,5 +473,66 @@ const styles = StyleSheet.create({
   },
   iconBtn: { padding: 4, minWidth: 36, alignItems: 'center', justifyContent: 'center' },
   pName: { fontSize: FontSize.md, fontWeight: '600', color: Colors.text },
+  pDesc: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2, lineHeight: 16 },
   pPrice: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '700', marginTop: 2 },
+  productMainTap: { flex: 1, minHeight: 52, justifyContent: 'center' },
+  pEditHint: { fontSize: 10, color: Colors.textMuted, marginTop: 4, fontWeight: '600' },
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(28, 25, 23, 0.45)',
+  },
+  modalSheet: {
+    width: '100%',
+    maxHeight: '92%',
+  },
+  modalCard: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
+  modalTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text, flex: 1 },
+  modalLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginBottom: 6,
+    marginTop: Spacing.sm,
+  },
+  modalInput: {
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    height: 48,
+    color: Colors.text,
+    fontSize: FontSize.md,
+  },
+  modalDescInput: {
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    minHeight: 88,
+    color: Colors.text,
+    fontSize: FontSize.sm,
+  },
+  modalCancelBtn: { alignItems: 'center', paddingVertical: Spacing.md },
+  modalCancelText: { fontSize: FontSize.md, fontWeight: '600', color: Colors.textSecondary },
 });

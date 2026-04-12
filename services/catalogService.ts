@@ -1,6 +1,11 @@
 import { getSupabaseClient } from '@/template';
 import type { Product, ProductCategory, Business } from '@/types';
 
+/** Banco remoto sem migração `20260410130000_product_promo_fields.sql` — PostgREST acusa schema cache. */
+function isMissingProductPromoColumnsError(message: string): boolean {
+  return /compare_price|max_per_order|schema cache/i.test(message);
+}
+
 export async function getBusinessById(id: string): Promise<Business | null> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.from('businesses').select('*').eq('id', id).single();
@@ -180,22 +185,25 @@ export async function createProduct(
   row: Omit<Product, 'id' | 'created_at'>
 ): Promise<{ data: Product | null; error: string | null }> {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
-    .from('products')
-    .insert({
-      business_id: row.business_id,
-      category_id: row.category_id,
-      name: row.name.trim(),
-      description: row.description?.trim() || null,
-      price: row.price,
-      compare_price: row.compare_price ?? null,
-      max_per_order: row.max_per_order ?? null,
-      image_url: row.image_url || null,
-      is_active: row.is_active,
-      sort_order: row.sort_order,
-    })
-    .select()
-    .single();
+  const base = {
+    business_id: row.business_id,
+    category_id: row.category_id,
+    name: row.name.trim(),
+    description: row.description?.trim() || null,
+    price: row.price,
+    image_url: row.image_url || null,
+    is_active: row.is_active,
+    sort_order: row.sort_order,
+  };
+  const withPromo = {
+    ...base,
+    compare_price: row.compare_price ?? null,
+    max_per_order: row.max_per_order ?? null,
+  };
+  let { data, error } = await supabase.from('products').insert(withPromo).select().single();
+  if (error && isMissingProductPromoColumnsError(error.message)) {
+    ({ data, error } = await supabase.from('products').insert(base).select().single());
+  }
   return { data, error: error ? error.message : null };
 }
 
@@ -224,7 +232,18 @@ export async function updateProduct(
   >
 ): Promise<{ error: string | null }> {
   const supabase = getSupabaseClient();
-  const { error } = await supabase.from('products').update(patch).eq('id', id);
+  let { error } = await supabase.from('products').update(patch).eq('id', id);
+  if (error && isMissingProductPromoColumnsError(error.message)) {
+    const { compare_price: _cp, max_per_order: _mo, ...rest } = patch;
+    if (Object.keys(rest).length > 0) {
+      ({ error } = await supabase.from('products').update(rest).eq('id', id));
+    } else {
+      return {
+        error:
+          'O banco ainda não tem as colunas compare_price / max_per_order. Rode o SQL em supabase/migrations/20260410130000_product_promo_fields.sql no painel do Supabase.',
+      };
+    }
+  }
   return { error: error ? error.message : null };
 }
 

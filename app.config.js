@@ -2,7 +2,7 @@ const variant = process.env.EXPO_PUBLIC_APP_VARIANT || 'client';
 
 const VARIANTS = {
   client: {
-    name: 'FastFood',
+    name: 'FastFud',
     slug: 'fastfood',
     scheme: 'fastfood',
     iosBundle: 'com.fastfood.app',
@@ -25,7 +25,8 @@ const VARIANTS = {
 };
 
 const v = VARIANTS[variant] || VARIANTS.client;
-const BRAND = 'FastFood';
+/** Textos de permissão: nome do app instalado neste build. */
+const BRAND = v.name;
 
 module.exports = {
   expo: {

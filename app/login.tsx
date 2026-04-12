@@ -328,7 +328,11 @@ export default function LoginScreen() {
                   <Text style={styles.registerBtnTitle}>
                     {APP_VARIANT === 'all' ? 'Sou Comércio' : 'Criar conta de comércio'}
                   </Text>
-                  <Text style={styles.registerBtnSub}>Cadastro grátis — solicite entregas</Text>
+                  <Text style={styles.registerBtnSub}>
+                    {APP_VARIANT === 'all'
+                      ? 'App FastFood Comércio — cadastro grátis, solicite entregas'
+                      : 'Cadastro grátis — solicite entregas'}
+                  </Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
               </TouchableOpacity>
@@ -345,7 +349,11 @@ export default function LoginScreen() {
                   <Text style={styles.registerBtnTitle}>
                     {APP_VARIANT === 'all' ? 'Sou Entregador' : 'Criar conta de entregador'}
                   </Text>
-                  <Text style={styles.registerBtnSub}>Assinatura mensal — faça entregas</Text>
+                  <Text style={styles.registerBtnSub}>
+                    {APP_VARIANT === 'all'
+                      ? 'App FastFood Entregador — assinatura mensal, faça entregas'
+                      : 'Assinatura mensal — faça entregas'}
+                  </Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
               </TouchableOpacity>

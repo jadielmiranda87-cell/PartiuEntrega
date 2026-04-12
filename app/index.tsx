@@ -40,7 +40,7 @@ export default function RootIndex() {
       router.replace('/login');
       Alert.alert(
         'App incorreto',
-        'Esta conta não é para este aplicativo. Cliente: app FastFood. Comércio: app FastFood Comércio. Entregador: app FastFood Entregador.',
+        'Esta conta não é para este aplicativo. Cliente: app FastFud. Comércio: app FastFood Comércio. Entregador: app FastFood Entregador.',
         [{ text: 'OK' }]
       );
     })();
