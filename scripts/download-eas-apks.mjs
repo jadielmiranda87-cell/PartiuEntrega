@@ -10,7 +10,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, createWriteStream } from 'node:fs';
+import { mkdirSync, createWriteStream, openSync, readSync, closeSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pipeline } from 'node:stream/promises';
@@ -27,7 +27,7 @@ const TARGETS = [
   },
   {
     file: 'FastFood-comercio.apk',
-    id: process.env.EAS_BUILD_COMERCIO_ID || '4626403d-040a-488d-b508-a4d102770cae',
+    id: process.env.EAS_BUILD_COMERCIO_ID || '08feb669-dbd5-4a08-9535-623bfa9f1398',
   },
   {
     file: 'FastFood-entregador.apk',
@@ -74,11 +74,61 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** ZIP “End of central directory” — APK truncado costuma falhar na instalação (“analisar o pacote”). */
+function assertApkZipLooksComplete(path) {
+  const st = statSync(path);
+  if (st.size < 1_000_000) throw new Error(`APK muito pequeno (${st.size} bytes) — download provavelmente falhou.`);
+  const tail = Math.min(70_000, st.size);
+  const buf = Buffer.alloc(tail);
+  const fd = openSync(path, 'r');
+  try {
+    readSync(fd, buf, 0, tail, st.size - tail);
+  } finally {
+    closeSync(fd);
+  }
+  const sig = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+  let ok = false;
+  for (let i = buf.length - sig.length; i >= 0; i--) {
+    if (buf.subarray(i, i + sig.length).equals(sig)) {
+      ok = true;
+      break;
+    }
+  }
+  if (!ok) throw new Error('APK corrompido ou incompleto (ZIP sem diretório central final). Baixe de novo.');
+}
+
+/**
+ * No Windows, `fetch`/`Invoke-WebRequest` às vezes grava APK incompleto após redirects do Expo.
+ * `curl.exe --ssl-no-revoke -L` segue a cadeia até o binário completo (~200MB+).
+ */
 async function downloadFile(url, dest) {
-  const res = await fetch(url, { redirect: 'follow' });
+  const token = process.env.EXPO_TOKEN;
+
+  if (process.platform === 'win32') {
+    const r = spawnSync(
+      'curl.exe',
+      ['--ssl-no-revoke', '-L', '-f', '-o', dest, ...(token ? ['-H', `Authorization: Bearer ${token}`] : []), url],
+      { stdio: 'inherit' }
+    );
+    if (r.status !== 0) {
+      try {
+        unlinkSync(dest);
+      } catch {
+        /* ignore */
+      }
+      throw new Error(`curl falhou (exit ${r.status}). Defina EXPO_TOKEN se pedir auth.`);
+    }
+    assertApkZipLooksComplete(dest);
+    return;
+  }
+
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(url, { redirect: 'follow', headers });
   if (!res.ok) throw new Error(`Download ${res.status}: ${url}`);
   const body = Readable.fromWeb(res.body);
   await pipeline(body, createWriteStream(dest));
+  assertApkZipLooksComplete(dest);
 }
 
 mkdirSync(APKS, { recursive: true });

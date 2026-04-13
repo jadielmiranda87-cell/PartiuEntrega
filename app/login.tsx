@@ -11,7 +11,7 @@ import { getAppConfig } from '@/services/configService';
 import { openWhatsApp, openEmail } from '@/utils/links';
 import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { APP_DISPLAY_NAME } from '@/constants/branding';
+import { APP_DISPLAY_NAME, APP_VARIANT } from '@/constants/branding';
 
 type Screen = 'login' | 'forgot_email' | 'forgot_otp';
 
@@ -317,7 +317,7 @@ export default function LoginScreen() {
           <View style={styles.registerSection}>
             <Text style={styles.registerTitle}>Ainda não tem conta?</Text>
 
-            {(APP_VARIANT === 'all' || APP_VARIANT === 'business') && (
+            {(APP_VARIANT === 'client' || APP_VARIANT === 'business') && (
               <TouchableOpacity
                 style={styles.registerBtn}
                 onPress={() => router.push('/register-business')}
@@ -326,10 +326,10 @@ export default function LoginScreen() {
                 <MaterialIcons name="store" size={22} color={Colors.primary} />
                 <View style={styles.registerBtnText}>
                   <Text style={styles.registerBtnTitle}>
-                    {APP_VARIANT === 'all' ? 'Sou Comércio' : 'Criar conta de comércio'}
+                    {APP_VARIANT === 'client' ? 'Sou Comércio' : 'Criar conta de comércio'}
                   </Text>
                   <Text style={styles.registerBtnSub}>
-                    {APP_VARIANT === 'all'
+                    {APP_VARIANT === 'client'
                       ? 'App FastFood Comércio — cadastro grátis, solicite entregas'
                       : 'Cadastro grátis — solicite entregas'}
                   </Text>
@@ -338,7 +338,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
             )}
 
-            {(APP_VARIANT === 'all' || APP_VARIANT === 'motoboy') && (
+            {(APP_VARIANT === 'client' || APP_VARIANT === 'motoboy') && (
               <TouchableOpacity
                 style={styles.registerBtn}
                 onPress={() => router.push('/register-motoboy')}
@@ -347,10 +347,10 @@ export default function LoginScreen() {
                 <MaterialIcons name="two-wheeler" size={22} color={Colors.secondary} />
                 <View style={styles.registerBtnText}>
                   <Text style={styles.registerBtnTitle}>
-                    {APP_VARIANT === 'all' ? 'Sou Entregador' : 'Criar conta de entregador'}
+                    {APP_VARIANT === 'client' ? 'Sou Entregador' : 'Criar conta de entregador'}
                   </Text>
                   <Text style={styles.registerBtnSub}>
-                    {APP_VARIANT === 'all'
+                    {APP_VARIANT === 'client'
                       ? 'App FastFood Entregador — assinatura mensal, faça entregas'
                       : 'Assinatura mensal — faça entregas'}
                   </Text>
