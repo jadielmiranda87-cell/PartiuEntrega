@@ -23,7 +23,7 @@ const APKS = join(ROOT, 'apks');
 const TARGETS = [
   {
     file: 'FastFud-cliente.apk',
-    id: process.env.EAS_BUILD_CLIENT_ID || '3861869e-7223-488b-b4e0-886fc4d26e95',
+    id: process.env.EAS_BUILD_CLIENT_ID || 'a132e5f9-1405-4199-b4d6-a8a7ea6279e4',
   },
   {
     file: 'FastFood-comercio.apk',
