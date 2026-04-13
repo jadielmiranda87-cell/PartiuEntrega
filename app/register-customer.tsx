@@ -10,12 +10,10 @@ import { useAlert } from '@/template';
 import { getSupabaseClient } from '@/template';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRegisterVariantGuard } from '@/hooks/useRegisterVariantGuard';
 
 type Step = 'form' | 'otp';
 
 export default function RegisterCustomerScreen() {
-  useRegisterVariantGuard('client');
   const [step, setStep] = useState<Step>('form');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
