@@ -63,7 +63,16 @@ export default function StoreMenuScreen() {
     );
   }
 
-  const hasMenu = categories.some((c) => (byCategory[c.id] ?? []).length > 0);
+  const categoryIdsWithItems = Object.keys(byCategory).filter(
+    (k) => (byCategory[k] ?? []).length > 0
+  );
+  const hasMenu = categoryIdsWithItems.length > 0;
+  const sections: ProductCategory[] = [
+    ...categories.filter((c) => categoryIdsWithItems.includes(c.id)),
+    ...categoryIdsWithItems
+      .filter((cid) => !categories.some((c) => c.id === cid))
+      .map((cid) => ({ id: cid, business_id: business.id, name: 'Cardápio', sort_order: 999, created_at: '' })),
+  ];
   const hours = business.opening_hours;
   const hasHoursConfig = hours != null && Object.keys(hours).length > 0;
   const status = hasHoursConfig ? openingStatusLabel(hours) : null;
@@ -110,7 +119,7 @@ export default function StoreMenuScreen() {
             <Text style={styles.emptyMenuText}>Cardápio ainda não cadastrado neste restaurante.</Text>
           </View>
         ) : (
-          categories.map((cat) => {
+          sections.map((cat) => {
             const items = byCategory[cat.id] ?? [];
             if (items.length === 0) return null;
             return (
@@ -118,7 +127,8 @@ export default function StoreMenuScreen() {
                 <Text style={styles.catTitle}>{cat.name}</Text>
                 {items.map((p) => {
                   const unit = Number(p.price);
-                  const cmp = p.compare_price != null ? Number(p.compare_price) : null;
+                  const cmp =
+                    'compare_price' in p && p.compare_price != null ? Number(p.compare_price as number) : null;
                   const showStrike = cmp != null && cmp > unit;
                   return (
                     <TouchableOpacity
