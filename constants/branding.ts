@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import type { UserType } from '@/types';
 
 export type AppVariant = 'client' | 'business' | 'motoboy';
 
@@ -23,6 +24,19 @@ export function getAppShortName(): string {
 }
 
 export const APP_SHORT_NAME = getAppShortName();
+
+/**
+ * Perfil da conta permitido neste APK (EXPO_PUBLIC_APP_VARIANT).
+ * `userType` ausente = ainda carregando perfil → true (evita travar antes do retry em app/index).
+ */
+export function isUserTypeAllowedInAppVariant(userType: UserType | null | undefined): boolean {
+  if (userType == null) return true;
+  if (userType === 'admin') return true;
+  if (APP_VARIANT === 'client') return userType === 'customer';
+  if (APP_VARIANT === 'business') return userType === 'business';
+  if (APP_VARIANT === 'motoboy') return userType === 'motoboy';
+  return true;
+}
 
 /** Prefixo AsyncStorage / chaves locais (inalterado para não invalidar sessões). */
 export const STORAGE_PREFIX = '@FastFood:';
