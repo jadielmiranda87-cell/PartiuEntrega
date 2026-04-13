@@ -9,7 +9,10 @@ function isMissingProductPromoColumnsError(message: string): boolean {
 export async function getBusinessById(id: string): Promise<Business | null> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.from('businesses').select('*').eq('id', id).single();
-  if (error) return null;
+  if (error) {
+    console.warn('getBusinessById', id, error.message);
+    return null;
+  }
   return data;
 }
 
@@ -28,36 +31,49 @@ export async function listBusinessesForExplore(): Promise<Business[]> {
 
 export async function getCategoriesForBusiness(businessId: string): Promise<ProductCategory[]> {
   const supabase = getSupabaseClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('product_categories')
     .select('*')
     .eq('business_id', businessId)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
+  if (error) {
+    console.warn('getCategoriesForBusiness', businessId, error.message);
+    return [];
+  }
   return data ?? [];
 }
 
 export async function getProductsForBusiness(businessId: string): Promise<Product[]> {
   const supabase = getSupabaseClient();
-  const { data } = await supabase
+  // Alinhar à política RLS (COALESCE(is_active,true)): null não pode ser excluído por .eq(true) no PostgREST.
+  const { data, error } = await supabase
     .from('products')
     .select('*')
     .eq('business_id', businessId)
-    .eq('is_active', true)
+    .or('is_active.is.null,is_active.eq.true')
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
+  if (error) {
+    console.warn('getProductsForBusiness', businessId, error.message);
+    return [];
+  }
   return data ?? [];
 }
 
 /** Painel do comércio — inclui inativos. */
 export async function getAllProductsForBusiness(businessId: string): Promise<Product[]> {
   const supabase = getSupabaseClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('products')
     .select('*')
     .eq('business_id', businessId)
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true });
+  if (error) {
+    console.warn('getAllProductsForBusiness', businessId, error.message);
+    return [];
+  }
   return data ?? [];
 }
 
