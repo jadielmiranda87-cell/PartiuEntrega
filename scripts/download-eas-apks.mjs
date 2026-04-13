@@ -27,7 +27,7 @@ const TARGETS = [
   },
   {
     file: 'FastFood-comercio.apk',
-    id: process.env.EAS_BUILD_COMERCIO_ID || 'a0476979-60bb-4ef2-a2bc-04ba488eec04',
+    id: process.env.EAS_BUILD_COMERCIO_ID || '161346d4-2ccc-4313-87f1-1a53c27f9450',
   },
   {
     file: 'FastFood-entregador.apk',
