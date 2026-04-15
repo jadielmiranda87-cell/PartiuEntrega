@@ -17,6 +17,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "apks:download": "node ./scripts/download-eas-apks.mjs",
+    "apks:local": "node ./scripts/pack-local-apks.mjs",
     "build:local:client": "cross-env APP_VARIANT=client npx eas build --platform android --profile client --local",
     "build:local:business": "cross-env APP_VARIANT=business npx eas build --platform android --profile comercio --local",
     "build:local:motoboy": "cross-env APP_VARIANT=motoboy npx eas build --platform android --profile entregador --local",
