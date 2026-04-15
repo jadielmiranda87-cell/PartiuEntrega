@@ -98,7 +98,9 @@ export default function BusinessOrdersScreen() {
           <View style={styles.empty}>
             <MaterialIcons name="receipt-long" size={48} color={Colors.textMuted} />
             <Text style={styles.emptyText}>Nenhum pedido ainda</Text>
-            <Text style={styles.emptySubText}>Crie uma nova entrega na aba "Nova Entrega"</Text>
+            <Text style={styles.emptySubText}>
+              {'Crie uma nova entrega na aba "Nova Entrega"'}
+            </Text>
           </View>
         }
         renderItem={({ item }) => {

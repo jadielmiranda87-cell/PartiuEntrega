@@ -26,6 +26,9 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+# IDE
+.idea/
+
 # macOS
 .DS_Store
 *.pem
@@ -34,6 +37,7 @@ yarn-error.*
 .env
 .env.*
 .env*.local
+!.env.*.example
 
 # Build artifacts
 *.apk

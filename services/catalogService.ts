@@ -1,6 +1,10 @@
 import { getSupabaseClient } from '@/template';
 import type { Product, ProductCategory, Business } from '@/types';
 
+/** Colunas expostas na vitrine do cliente (evita vazar payment_api_key / user_id). */
+const BUSINESS_PUBLIC_SELECT =
+  'id, name, phone, address, address_number, complement, neighborhood, city, state, cep, cnpj, opening_hours, created_at, billing_plan';
+
 /** Banco remoto sem migração `20260410130000_product_promo_fields.sql` — PostgREST acusa schema cache. */
 function isMissingProductPromoColumnsError(message: string): boolean {
   return /compare_price|max_per_order|schema cache/i.test(message);
@@ -8,9 +12,23 @@ function isMissingProductPromoColumnsError(message: string): boolean {
 
 export async function getBusinessById(id: string): Promise<Business | null> {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase.from('businesses').select('*').eq('id', id).single();
+  const { data, error } = await supabase
+    .from('businesses')
+    .select(BUSINESS_PUBLIC_SELECT)
+    .eq('id', id)
+    .single();
   if (error) {
     console.warn('getBusinessById', id, error.message);
+    return null;
+  }
+  return data as Business;
+}
+
+export async function getProductById(id: string): Promise<Product | null> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+  if (error) {
+    console.warn('getProductById', id, error.message);
     return null;
   }
   return data;
@@ -20,13 +38,13 @@ export async function listBusinessesForExplore(): Promise<Business[]> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from('businesses')
-    .select('*')
+    .select(BUSINESS_PUBLIC_SELECT)
     .order('name', { ascending: true });
   if (error) {
     console.warn('listBusinessesForExplore', error.message);
     return [];
   }
-  return data ?? [];
+  return (data ?? []) as Business[];
 }
 
 export async function getCategoriesForBusiness(businessId: string): Promise<ProductCategory[]> {

@@ -7,13 +7,13 @@ import type { UserType } from '@/types';
  * Redirects authenticated users away from registration screens.
  * If a user is already logged in, they are sent to their respective home tab.
  */
-export function useRegisterVariantGuard(variant: UserType) {
-  const { user, userType, loading: authLoading } = useAppAuth();
+export function useRegisterVariantGuard(_variant: UserType) {
+  const { userId, userType, loading: authLoading } = useAppAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) return;
+    if (!userId) return;
 
     // Already authenticated — redirect to the appropriate home
     const dest =
@@ -24,5 +24,5 @@ export function useRegisterVariantGuard(variant: UserType) {
       '/';
 
     router.replace(dest as any);
-  }, [authLoading, user, userType]);
+  }, [authLoading, userId, userType, router]);
 }
