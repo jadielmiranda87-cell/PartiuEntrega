@@ -38,6 +38,15 @@ function runGradle(appVariant, task) {
 
 mkdirSync(APKS, { recursive: true });
 
+/** Limpa bundles antigos para não reaproveitar JS do variant errado. */
+const clean = spawnSync(gradle, ['clean', '--no-daemon'], {
+  cwd: ANDROID,
+  env: { ...process.env },
+  stdio: 'inherit',
+  shell: isWin,
+});
+if (clean.status !== 0) process.exit(clean.status ?? 1);
+
 for (const s of STEPS) {
   console.log(`\n>>> APP_VARIANT=${s.env} ${s.task}\n`);
   runGradle(s.env, s.task);

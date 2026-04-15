@@ -107,12 +107,12 @@ android {
     productFlavors {
         client {
             dimension "appvariant"
-            applicationId 'com.fastfood.entregador'
+            applicationId 'com.fastfood.app'
             resValue "string", "app_name", "FastFud"
         }
         business {
             dimension "appvariant"
-            applicationId 'com.fastfood.entregador'
+            applicationId 'com.fastfood.comercio'
             resValue "string", "app_name", "FastFood Comércio"
         }
         motoboy {
@@ -192,5 +192,28 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+}
+
+/**
+ * Cada flavor precisa do bundle JS certo (Expo Router + app.config por APP_VARIANT).
+ * Sem isso, todos os APKs embalam o variant "client".
+ */
+afterEvaluate {
+    tasks.withType(Exec).configureEach { task ->
+        def n = task.name
+        if (!n.startsWith('createBundle') || !n.endsWith('ReleaseJsAndAssets')) {
+            return
+        }
+        if (n.contains('Client')) {
+            task.environment 'APP_VARIANT', 'client'
+            task.environment 'EXPO_PUBLIC_APP_VARIANT', 'client'
+        } else if (n.contains('Business')) {
+            task.environment 'APP_VARIANT', 'business'
+            task.environment 'EXPO_PUBLIC_APP_VARIANT', 'business'
+        } else if (n.contains('Motoboy')) {
+            task.environment 'APP_VARIANT', 'motoboy'
+            task.environment 'EXPO_PUBLIC_APP_VARIANT', 'motoboy'
+        }
     }
 }
