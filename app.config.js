@@ -34,8 +34,8 @@ const BRAND = v.name;
 
 module.exports = {
   expo: {
+    owner: 'jadielbast',
     name: v.name,
-    // Slug + extra.eas.projectId devem bater com o projeto em expo.dev (rode `eas init` após `eas login`).
     slug: 'partiuentrega-mobile',
     version: '1.0.0',
     orientation: 'portrait',
@@ -128,7 +128,9 @@ module.exports = {
       typedRoutes: true,
     },
     extra: {
-      eas: {},
+      eas: {
+        projectId: '11df9a53-22b7-4186-b74e-acad19b19d66',
+      },
     },
   },
 };
