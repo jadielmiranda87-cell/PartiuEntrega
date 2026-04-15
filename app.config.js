@@ -34,10 +34,9 @@ const BRAND = v.name;
 
 module.exports = {
   expo: {
-    owner: 'jadielrv',
     name: v.name,
-    // Deve coincidir com o app no EAS (extra.eas.projectId); variantes usam EXPO_PUBLIC_APP_VARIANT no build.
-    slug: 'partiu-entrega-fastfood',
+    // Slug + extra.eas.projectId devem bater com o projeto em expo.dev (rode `eas init` após `eas login`).
+    slug: 'partiuentrega-mobile',
     version: '1.0.0',
     orientation: 'portrait',
     scheme: v.scheme,
@@ -129,9 +128,7 @@ module.exports = {
       typedRoutes: true,
     },
     extra: {
-      eas: {
-        projectId: '02fc6734-c8c9-4b4d-861b-728b183fe507',
-      },
+      eas: {},
     },
   },
 };
