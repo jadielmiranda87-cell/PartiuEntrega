@@ -18,6 +18,7 @@ export default function StoreMenuScreen() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [byCategory, setByCategory] = useState<Record<string, Product[]>>({});
+  const [menuError, setMenuError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const { itemCount } = useCart();
   const insets = useSafeAreaInsets();
@@ -32,6 +33,9 @@ export default function StoreMenuScreen() {
       const menu = await getMenuForBusiness(b.id);
       setCategories(menu.categories);
       setByCategory(menu.byCategory);
+      setMenuError(menu.error);
+    } else {
+      setMenuError(null);
     }
     setLoading(false);
   }, [id]);
@@ -113,7 +117,17 @@ export default function StoreMenuScreen() {
           <Text style={styles.hoursHint}>Horário de funcionamento não informado pelo restaurante.</Text>
         )}
 
-        {!hasMenu ? (
+        {menuError ? (
+          <View style={styles.errorBox}>
+            <MaterialIcons name="cloud-off" size={40} color={Colors.error} />
+            <Text style={styles.errorTitle}>Não foi possível carregar o cardápio</Text>
+            <Text style={styles.errorDetail}>
+              {menuError}
+              {'\n\n'}
+              Se o restaurante já cadastrou itens, o Supabase precisa de políticas de leitura pública em products e product_categories. Aplique o script apply_public_catalog_read.sql (pasta supabase/scripts do projeto) no SQL Editor.
+            </Text>
+          </View>
+        ) : !hasMenu ? (
           <View style={styles.emptyMenu}>
             <MaterialIcons name="restaurant-menu" size={40} color={Colors.textMuted} />
             <Text style={styles.emptyMenuText}>Cardápio ainda não cadastrado neste restaurante.</Text>
@@ -222,6 +236,19 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 6, flexWrap: 'wrap' },
   pPrice: { fontSize: FontSize.md, fontWeight: '800', color: Colors.success },
   pCompare: { fontSize: FontSize.sm, color: Colors.textMuted, textDecorationLine: 'line-through' },
+  errorBox: {
+    alignItems: 'center',
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.md,
+  },
+  errorTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text, textAlign: 'center' },
+  errorDetail: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
   emptyMenu: { alignItems: 'center', paddingVertical: 40, gap: Spacing.sm },
   emptyMenuText: { color: Colors.textSecondary, textAlign: 'center', paddingHorizontal: Spacing.lg },
   fabBar: {

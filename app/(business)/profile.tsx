@@ -18,7 +18,7 @@ import { openWhatsApp } from '@/utils/links';
 import { useRouter } from 'expo-router';
 import { APP_SHORT_NAME } from '@/constants/branding';
 import { getBillingConfig } from '@/services/billingConfig';
-import { updateBusinessProfile } from '@/services/businessService';
+import { updateBusinessProfile, syncBusinessCoordinates } from '@/services/businessService';
 import type { BillingConfig, BusinessBillingPlan } from '@/types';
 import { useAlert } from '@/template';
 
@@ -31,6 +31,7 @@ export default function BusinessProfileScreen() {
   const [billingInfo, setBillingInfo] = useState<BillingConfig | null>(null);
   const [plan, setPlan] = useState<BusinessBillingPlan>('basic');
   const [apiKey, setApiKey] = useState('');
+  const [commerceName, setCommerceName] = useState('');
   const [saving, setSaving] = useState(false);
 
   const loadBilling = useCallback(() => {
@@ -43,6 +44,7 @@ export default function BusinessProfileScreen() {
 
   useEffect(() => {
     if (!businessProfile) return;
+    setCommerceName(businessProfile.name ?? '');
     setPlan(businessProfile.billing_plan === 'delivery' ? 'delivery' : 'basic');
     setApiKey(businessProfile.payment_api_key ?? '');
   }, [businessProfile]);
@@ -54,8 +56,14 @@ export default function BusinessProfileScreen() {
 
   const handleSaveCommerce = async () => {
     if (!businessProfile) return;
+    const nameTrim = commerceName.trim();
+    if (nameTrim.length < 2) {
+      showAlert('Nome do comércio', 'Informe um nome com pelo menos 2 caracteres. Esse nome aparece para os clientes e na busca.');
+      return;
+    }
     setSaving(true);
     const { error } = await updateBusinessProfile(businessProfile.id, {
+      name: nameTrim,
       billing_plan: plan,
       payment_api_key: apiKey.trim() || null,
     });
@@ -65,7 +73,8 @@ export default function BusinessProfileScreen() {
       return;
     }
     await refreshProfile();
-    showAlert('Salvo', 'Plano e chave API atualizados.');
+    void syncBusinessCoordinates(businessProfile.id);
+    showAlert('Salvo', 'Nome, plano e chave API atualizados.');
   };
 
   if (authLoading) {
@@ -113,7 +122,19 @@ export default function BusinessProfileScreen() {
           <View style={styles.avatar}>
             <MaterialIcons name="store" size={40} color={Colors.primary} />
           </View>
-          <Text style={styles.bizName}>{businessProfile.name}</Text>
+          <Text style={styles.nameFieldLabel}>Nome do comércio (vitrine e busca)</Text>
+          <TextInput
+            style={styles.bizNameInput}
+            value={commerceName}
+            onChangeText={setCommerceName}
+            placeholder="Ex.: Pizzaria do João"
+            placeholderTextColor={Colors.textMuted}
+            maxLength={120}
+            autoCorrect
+          />
+          <Text style={styles.nameFieldHint}>
+            Os clientes encontram sua loja ao digitar esse nome na busca e veem só o seu cardápio.
+          </Text>
           <Text style={styles.bizEmail}>{profile?.email}</Text>
         </View>
 
@@ -191,7 +212,7 @@ export default function BusinessProfileScreen() {
             disabled={saving}
             activeOpacity={0.85}
           >
-            {saving ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.saveBtnText}>Salvar plano e chave</Text>}
+            {saving ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.saveBtnText}>Salvar nome, plano e chave</Text>}
           </TouchableOpacity>
         </View>
 
@@ -231,10 +252,22 @@ const infoStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   pageTitle: { fontSize: FontSize.xxl, fontWeight: '700', color: Colors.text, marginBottom: Spacing.md },
-  avatarCard: { alignItems: 'center', backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: Spacing.xl, marginBottom: Spacing.md },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.surfaceElevated, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md },
-  bizName: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.text },
-  bizEmail: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
+  avatarCard: { alignItems: 'stretch', backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: Spacing.xl, marginBottom: Spacing.md },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.surfaceElevated, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.md, alignSelf: 'center' },
+  nameFieldLabel: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary, marginBottom: 6 },
+  bizNameInput: {
+    fontSize: FontSize.xl,
+    fontWeight: '700',
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    backgroundColor: Colors.surfaceElevated,
+  },
+  nameFieldHint: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 8, lineHeight: 18 },
+  bizEmail: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: Spacing.md, textAlign: 'center' },
   section: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, marginBottom: Spacing.md },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
