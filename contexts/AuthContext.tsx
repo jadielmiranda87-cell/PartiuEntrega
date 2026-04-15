@@ -29,12 +29,12 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+function withTimeout<T>(promise: PromiseLike<T>, ms: number, label: string): Promise<T> {
   let t: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<never>((_, reject) => {
     t = setTimeout(() => reject(new Error(`Timeout (${ms}ms): ${label}`)), ms);
   });
-  return Promise.race([promise, timeout]).finally(() => {
+  return Promise.race([Promise.resolve(promise), timeout]).finally(() => {
     if (t) clearTimeout(t);
   }) as Promise<T>;
 }
@@ -225,8 +225,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const sub = AppState.addEventListener('change', (state) => {
       try {
         if (state === 'active') {
-          // @ts-expect-error supabase-js provides this at runtime
-          supabase.auth.startAutoRefresh?.();
+          (
+            supabase.auth as typeof supabase.auth & {
+              startAutoRefresh?: () => void;
+              stopAutoRefresh?: () => void;
+            }
+          ).startAutoRefresh?.();
           void (async () => {
             try {
               await withTimeout(supabase.auth.getSession(), 10_000, 'getSession on resume');
@@ -236,8 +240,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setLoading(false);
           })();
         } else {
-          // @ts-expect-error supabase-js provides this at runtime
-          supabase.auth.stopAutoRefresh?.();
+          (
+            supabase.auth as typeof supabase.auth & {
+              startAutoRefresh?: () => void;
+              stopAutoRefresh?: () => void;
+            }
+          ).stopAutoRefresh?.();
         }
       } catch {
         // ignore
@@ -296,7 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<{ error: string | null; userId: string | null }> => {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'signup' });
-    if (error) return { error: 'Código inválido ou expirado' };
+    if (error) return { error: 'Código inválido ou expirado', userId: null };
     const uid = data.user?.id ?? null;
     if (uid && uType) {
       await supabase.from('user_profiles').update({ user_type: uType, email }).eq('id', uid);

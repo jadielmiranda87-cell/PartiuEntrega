@@ -8,6 +8,7 @@ export interface CartLine {
   productName: string;
   unitPrice: number;
   quantity: number;
+  notes?: string;
 }
 
 interface CartContextType {
@@ -64,6 +65,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           productName: line.productName,
           unitPrice: line.unitPrice,
           quantity: qty,
+          ...(line.notes ? { notes: line.notes } : {}),
         };
         return [...prev, row];
       });

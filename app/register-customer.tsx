@@ -15,7 +15,7 @@ import { useRegisterVariantGuard } from '@/hooks/useRegisterVariantGuard';
 type Step = 'form' | 'otp';
 
 export default function RegisterCustomerScreen() {
-  useRegisterVariantGuard('client');
+  useRegisterVariantGuard('customer');
   const [step, setStep] = useState<Step>('form');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

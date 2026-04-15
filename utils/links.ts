@@ -54,6 +54,18 @@ export function openWaze(dest: WazeDestination) {
   Linking.openURL(url);
 }
 
+/** Abre o Google Maps com rota até o destino (opcional: origem = posição atual do motoboy). */
+export function openGoogleMapsToDestination(
+  dest: { lat: number; lng: number },
+  origin?: { lat: number; lng: number }
+) {
+  const d = `${dest.lat},${dest.lng}`;
+  const url = origin
+    ? `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${encodeURIComponent(d)}&travelmode=driving`
+    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d)}&travelmode=driving`;
+  Linking.openURL(url);
+}
+
 export function openWhatsApp(phone: string, message?: string) {
   const cleaned = phone.replace(/\D/g, '');
   const withCountry = cleaned.startsWith('55') ? cleaned : `55${cleaned}`;

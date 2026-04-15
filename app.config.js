@@ -1,4 +1,8 @@
-const variant = process.env.EXPO_PUBLIC_APP_VARIANT || 'client';
+const path = require('path');
+const { loadAppVariantEnv } = require('./scripts/load-app-variant-env.js');
+
+/** Lê `.env.client` / `.env.business` / `.env.motoboy` (ou `APP_VARIANT` no Gradle ao empacotar). */
+const variant = loadAppVariantEnv(path.resolve(__dirname));
 
 const VARIANTS = {
   client: {
@@ -118,6 +122,7 @@ module.exports = {
           sounds: [],
         },
       ],
+      './plugins/withAndroidAppVariants',
     ],
     experiments: {
       typedRoutes: true,

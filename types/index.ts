@@ -106,7 +106,7 @@ export interface Motoboy {
   moto_year: string;
   city: string;
   state: string;
-  status: 'pending_payment' | 'pending_approval' | 'active' | 'suspended';
+  status: 'pending_payment' | 'pending_approval' | 'active' | 'suspended' | 'expired';
   subscription_expires_at?: string;
   is_first_subscription: boolean;
   referral_code?: string;
@@ -156,6 +156,9 @@ export interface Delivery {
   customer_city: string;
   customer_state: string;
   customer_cep: string;
+  /** GPS salvo no pedido (app cliente), quando disponível. */
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
   distance_km: number;
   /** Total cobrado (itens + taxa de entrega, quando aplicável). */
   price: number;
@@ -206,6 +209,10 @@ export interface Product {
   name: string;
   description?: string | null;
   price: number;
+  /** Preço “de” / comparativo (promoção), quando a coluna existir no banco. */
+  compare_price?: number | null;
+  /** Limite por pedido; null = sem limite. */
+  max_per_order?: number | null;
   image_url?: string | null;
   is_active: boolean;
   sort_order: number;
