@@ -48,6 +48,9 @@ export interface Business {
   payment_api_key?: string | null;
   /** Horário de funcionamento (opcional). Se vazio, o app trata como “sempre aberto”. */
   opening_hours?: WeeklyOpeningHours | null;
+  /** Geocode do endereço (preenchido ao salvar cadastro; usado para ordenar por distância no cliente). */
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 /** Plano configurável no painel admin (JSON em app_config.billing_config). */

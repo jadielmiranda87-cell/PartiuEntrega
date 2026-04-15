@@ -14,7 +14,6 @@ export default function CustomerLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: APP_DISPLAY_NAME, headerLargeTitle: false }} />
-      <Stack.Screen name="store/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="cart" options={{ title: 'Carrinho' }} />
       <Stack.Screen name="checkout" options={{ title: 'Finalizar pedido' }} />
       <Stack.Screen name="order-payment" options={{ title: 'Pagamento' }} />

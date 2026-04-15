@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { useAlert } from '@/template';
-import { createBusinessProfile } from '@/services/businessService';
+import { createBusinessProfile, syncBusinessCoordinates } from '@/services/businessService';
 import { getMotoboyByReferralCode } from '@/services/cashbackService';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -103,7 +103,7 @@ export default function RegisterBusinessScreen() {
       referredByMotoboyId = motoboy?.id;
     }
 
-    const { error: bizError } = await createBusinessProfile(userId, {
+    const { error: bizError, data: createdBiz } = await createBusinessProfile(userId, {
       name, cnpj, phone, address, address_number: addressNumber,
       complement, neighborhood, city, state, cep,
       ...(referredByMotoboyId ? { referred_by_motoboy_id: referredByMotoboyId } : {}),
@@ -113,6 +113,9 @@ export default function RegisterBusinessScreen() {
     if (bizError) {
       showAlert('Erro ao salvar dados', bizError);
       return;
+    }
+    if (createdBiz?.id) {
+      void syncBusinessCoordinates(createdBiz.id);
     }
     router.replace('/');
   };
