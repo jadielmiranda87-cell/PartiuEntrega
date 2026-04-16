@@ -101,12 +101,71 @@ export async function getDirections(
   origin: string | GeoLocation,
   destination: string | GeoLocation
 ): Promise<DirectionsResult | null> {
-  const { data, error } = await invokeEdge<DirectionsResult>('maps-directions', {
+  const { data, error } = await invokeEdge<DirectionsResult & { error?: string }>('maps-directions', {
     origin,
     destination,
   });
   if (error || !data) return null;
-  return data;
+  if (typeof (data as { error?: string }).error === 'string') return null;
+  if (!(data as DirectionsResult).distance?.value) return null;
+  return data as DirectionsResult;
+}
+
+// ─── Distância para taxa de entrega: Google (servidor) → OSRM → linha reta ajustada ───
+
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 12_000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+async function getOsrmDistanceKm(origin: GeoLocation, dest: GeoLocation): Promise<number | null> {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=false`;
+    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'PartiuEntrega/1.0' } });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { code?: string; routes?: Array<{ distance: number }> };
+    if (json.code !== 'Ok' || !json.routes?.length) return null;
+    return Math.round((json.routes[0].distance / 1000) * 10) / 10;
+  } catch {
+    return null;
+  }
+}
+
+function haversineKm(a: GeoLocation, b: GeoLocation): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const x =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.asin(Math.min(1, Math.sqrt(x)));
+}
+
+/**
+ * Distância em km para precificação de entrega.
+ * 1) Google Directions (Edge `maps-directions` + secret `GOOGLE_MAPS_API_KEY` no Supabase/OnSpace)
+ * 2) OSRM público (estrada aproximada)
+ * 3) Haversine × 1,35 (último recurso; estradas costumam ser ~20–40% maiores que linha reta)
+ */
+export async function getDrivingDistanceKm(
+  origin: GeoLocation,
+  dest: GeoLocation
+): Promise<{ km: number; source: 'google' | 'osrm' | 'approx' } | null> {
+  const direct = await getDirections(origin, dest);
+  if (direct?.distance?.value) {
+    return { km: Math.round((direct.distance.value / 1000) * 10) / 10, source: 'google' };
+  }
+  const osrm = await getOsrmDistanceKm(origin, dest);
+  if (osrm != null) return { km: osrm, source: 'osrm' };
+  const h = haversineKm(origin, dest);
+  if (!Number.isFinite(h) || h <= 0) return null;
+  return { km: Math.round(h * 1.35 * 10) / 10, source: 'approx' };
 }
 
 // ─── Decode Google polyline ───────────────────────────────────────────────────

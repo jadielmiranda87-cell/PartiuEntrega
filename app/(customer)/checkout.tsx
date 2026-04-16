@@ -22,10 +22,10 @@ import { useCart } from '@/contexts/CartContext';
 import { getBusinessById } from '@/services/catalogService';
 import { createDelivery, getCustomerDeliveries } from '@/services/deliveryService';
 import { getAppConfig } from '@/services/configService';
-import { geocodeAddress, getDirections, reverseGeocode, type GeoLocation } from '@/services/mapsService';
+import { geocodeAddress, getDrivingDistanceKm, reverseGeocode, type GeoLocation } from '@/services/mapsService';
 import { requestLocationPermission } from '@/services/permissionsService';
 import { addressFormFromGeocode } from '@/utils/addressFromGeocode';
-import type { Business, Delivery, OrderItemLine } from '@/types';
+import type { Business, BusinessBillingPlan, Delivery, OrderItemLine } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency } from '@/utils/links';
@@ -100,6 +100,10 @@ export default function CheckoutScreen() {
   const [loadingGps, setLoadingGps] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  /** `delivery` = taxa por km; `basic` = entrega grátis (plano próprio do comércio). Ausência trata como delivery. */
+  const billingPlan: BusinessBillingPlan = business?.billing_plan ?? 'delivery';
+  const isBasicPlan = billingPlan === 'basic';
+
   const savedList = useMemo(() => uniqueSavedDeliveries(pastDeliveries), [pastDeliveries]);
 
   useEffect(() => {
@@ -153,9 +157,12 @@ export default function CheckoutScreen() {
     setDeliveryPin(null);
   }, [customerAddress, customerNeighborhood, customerCity, customerState]);
 
-  const deliveryFee =
+  /** Taxa bruta pela distância (sempre calculada internamente quando há km). */
+  const rawDeliveryFee =
     distanceKm != null && !Number.isNaN(distanceKm) ? Math.max(minPrice, distanceKm * pricePerKm) : null;
-  const total = subtotal + (deliveryFee ?? 0);
+  /** Valor cobrado do cliente: plano básico = R$ 0 na entrega. */
+  const deliveryFeeCharged = isBasicPlan ? (rawDeliveryFee != null ? 0 : null) : rawDeliveryFee;
+  const total = subtotal + (deliveryFeeCharged ?? 0);
 
   const fillFromGeocode = useCallback((geo: NonNullable<Awaited<ReturnType<typeof reverseGeocode>>>, pin: GeoLocation | null) => {
     const f = addressFormFromGeocode(geo);
@@ -240,52 +247,88 @@ export default function CheckoutScreen() {
     []
   );
 
-  const computeDistance = useCallback(async () => {
-    if (!business) return;
-    setCalcDist(true);
-    setDistanceKm(null);
-    try {
-      let origin: GeoLocation;
-      if (businessHasSavedCoords(business)) {
-        origin = { lat: Number(business.latitude), lng: Number(business.longitude) };
-      } else {
-        const geoBiz = await geocodeAddress(businessGeoString(business));
-        if (!geoBiz?.location) {
-          showAlert(
-            'Endereço do restaurante',
-            'Não foi possível localizar o restaurante no mapa. Peça ao comércio para salvar o cadastro de endereço de novo no app (isso grava as coordenadas).'
-          );
+  const recalculateDelivery = useCallback(
+    async (silent: boolean) => {
+      if (!business) return;
+      setCalcDist(true);
+      try {
+        let origin: GeoLocation;
+        if (businessHasSavedCoords(business)) {
+          origin = { lat: Number(business.latitude), lng: Number(business.longitude) };
+        } else {
+          const geoBiz = await geocodeAddress(businessGeoString(business));
+          if (!geoBiz?.location) {
+            setDistanceKm(null);
+            if (!silent) {
+              showAlert(
+                'Endereço do restaurante',
+                'Não foi possível localizar o restaurante no mapa. Peça ao comércio para salvar o cadastro de endereço de novo no app (isso grava as coordenadas).'
+              );
+            }
+            return;
+          }
+          origin = geoBiz.location;
+        }
+
+        let destPoint: GeoLocation | null = deliveryPin;
+
+        if (!destPoint) {
+          const destStr = `${customerAddress}, ${customerNumber}, ${customerNeighborhood}, ${customerCity}, ${customerState}, ${customerCep}, Brasil`;
+          const geoDest = await geocodeAddress(destStr);
+          if (!geoDest?.location) {
+            setDistanceKm(null);
+            if (!silent) {
+              showAlert(
+                'Endereço de entrega',
+                'Não foi possível localizar seu endereço. Confira rua, número, bairro, cidade e UF. Você pode usar "Localização atual" para maior precisão.'
+              );
+            }
+            return;
+          }
+          destPoint = geoDest.location;
+        }
+
+        const dist = await getDrivingDistanceKm(origin, destPoint);
+        if (!dist) {
+          setDistanceKm(null);
+          if (!silent) {
+            showAlert('Rota', 'Não foi possível calcular a distância de entrega. Verifique os endereços e tente de novo.');
+          }
           return;
         }
-        origin = geoBiz.location;
+        setDistanceKm(dist.km);
+      } finally {
+        setCalcDist(false);
       }
+    },
+    [business, customerAddress, customerNumber, customerNeighborhood, customerCity, customerState, customerCep, deliveryPin, showAlert]
+  );
 
-      let destPoint: GeoLocation | null = deliveryPin;
+  const addressComplete =
+    !!customerAddress.trim() &&
+    !!customerNumber.trim() &&
+    !!customerNeighborhood.trim() &&
+    !!customerCity.trim() &&
+    !!customerState.trim();
 
-      if (!destPoint) {
-        const destStr = `${customerAddress}, ${customerNumber}, ${customerNeighborhood}, ${customerCity}, ${customerState}, ${customerCep}, Brasil`;
-        const geoDest = await geocodeAddress(destStr);
-        if (!geoDest?.location) {
-          showAlert(
-            'Endereço de entrega',
-            'Não foi possível localizar seu endereço. Confira rua, número, bairro, cidade e UF. Você pode usar "Localização atual" para maior precisão.'
-          );
-          return;
-        }
-        destPoint = geoDest.location;
-      }
-
-      const directions = await getDirections(origin, destPoint);
-      if (!directions?.distance?.value) {
-        showAlert('Rota', 'Não foi possível calcular a distância de entrega. Verifique os endereços e tente de novo.');
-        return;
-      }
-      const km = Math.round((directions.distance.value / 1000) * 10) / 10;
-      setDistanceKm(km);
-    } finally {
-      setCalcDist(false);
-    }
-  }, [business, customerAddress, customerNumber, customerNeighborhood, customerCity, customerState, customerCep, deliveryPin, showAlert]);
+  useEffect(() => {
+    if (!business || !addressComplete) return;
+    const t = setTimeout(() => {
+      void recalculateDelivery(true);
+    }, 700);
+    return () => clearTimeout(t);
+  }, [
+    business,
+    addressComplete,
+    customerAddress,
+    customerNumber,
+    customerNeighborhood,
+    customerCity,
+    customerState,
+    customerCep,
+    deliveryPin,
+    recalculateDelivery,
+  ]);
 
   const handleSubmit = async () => {
     if (!business || !userId || lines.length === 0) {
@@ -300,8 +343,13 @@ export default function CheckoutScreen() {
       showAlert('Endereço', 'Preencha o endereço de entrega completo.');
       return;
     }
-    if (deliveryFee == null || distanceKm == null) {
-      showAlert('Entrega', 'Toque em "Calcular distância e taxa" com o endereço completo para obter a taxa de entrega.');
+    if (distanceKm == null || rawDeliveryFee == null) {
+      showAlert(
+        'Entrega',
+        calcDist
+          ? 'Aguarde o cálculo automático da entrega.'
+          : 'Não foi possível calcular a entrega. Confira o endereço ou use o mapa para ajustar o ponto.'
+      );
       return;
     }
 
@@ -513,13 +561,6 @@ export default function CheckoutScreen() {
           </View>
         ) : null}
 
-        <View style={styles.verifyHint}>
-          <MaterialIcons name="warning-amber" size={16} color={Colors.error} />
-          <Text style={styles.verifyHintText}>
-            Verifique se o endereço de entrega está correto antes de calcular a taxa.
-          </Text>
-        </View>
-
         <TextInput
           style={styles.input}
           placeholder="CEP"
@@ -574,20 +615,11 @@ export default function CheckoutScreen() {
           />
         </View>
 
-        <TouchableOpacity style={styles.calcBtn} onPress={computeDistance} disabled={calcDist} activeOpacity={0.88}>
-          {calcDist ? (
-            <ActivityIndicator color={Colors.white} />
-          ) : (
-            <>
-              <MaterialIcons name="route" size={20} color={Colors.white} />
-              <Text style={styles.calcBtnText}>Calcular distância e taxa</Text>
-            </>
-          )}
-        </TouchableOpacity>
-        {distanceKm != null ? (
-          <Text style={styles.distanceReadout}>
-            Distância estimada (rota de carro): <Text style={styles.distanceReadoutKm}>{distanceKm} km</Text>
-          </Text>
+        {calcDist ? (
+          <View style={styles.calcHintRow}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+            <Text style={styles.calcHintText}>Calculando taxa de entrega…</Text>
+          </View>
         ) : null}
 
         <TextInput
@@ -601,7 +633,26 @@ export default function CheckoutScreen() {
 
         <View style={styles.summary}>
           <Row label="Subtotal (itens)" value={formatCurrency(subtotal)} />
-          <Row label="Taxa de entrega" value={deliveryFee != null ? formatCurrency(deliveryFee) : '—'} />
+          {isBasicPlan ? (
+            <View style={{ marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <Text style={{ color: Colors.textSecondary, fontWeight: '500' }}>Taxa de entrega</Text>
+                <View style={{ alignItems: 'flex-end', maxWidth: '62%' }}>
+                  {rawDeliveryFee != null ? (
+                    <Text style={styles.feeStruck}>{formatCurrency(rawDeliveryFee)}</Text>
+                  ) : null}
+                  <Text style={styles.feeFree}>Entrega grátis</Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            <Row
+              label="Taxa de entrega"
+              value={
+                calcDist ? '…' : rawDeliveryFee != null ? formatCurrency(rawDeliveryFee) : '—'
+              }
+            />
+          )}
           <Row label="Total" value={formatCurrency(total)} bold />
         </View>
 
@@ -692,26 +743,21 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   hintBannerText: { flex: 1, fontSize: FontSize.sm, color: Colors.text, lineHeight: 20 },
-  verifyHint: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    marginBottom: Spacing.sm,
-  },
-  verifyHintText: { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20 },
-  calcBtn: {
+  calcHintRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.info,
-    height: 48,
-    borderRadius: BorderRadius.md,
     marginBottom: Spacing.sm,
+    paddingVertical: 4,
   },
-  calcBtnText: { color: Colors.white, fontWeight: '800' },
-  distanceReadout: { fontSize: FontSize.sm, color: Colors.textSecondary, marginBottom: Spacing.sm },
-  distanceReadoutKm: { fontWeight: '800', color: Colors.text },
+  calcHintText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '600' },
+  feeStruck: {
+    textDecorationLine: 'line-through',
+    color: Colors.textMuted,
+    fontSize: FontSize.sm,
+    marginBottom: 2,
+  },
+  feeFree: { color: Colors.success, fontWeight: '800', fontSize: FontSize.md },
   summary: {
     backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,

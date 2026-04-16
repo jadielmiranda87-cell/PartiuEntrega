@@ -56,7 +56,6 @@ export default function CustomerCartScreen() {
               <Text style={styles.totalLabel}>Subtotal</Text>
               <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
             </View>
-            <Text style={styles.hint}>Taxa de entrega calculada no próximo passo</Text>
             <TouchableOpacity style={styles.checkoutBtn} onPress={() => router.push('/(customer)/checkout')} activeOpacity={0.9}>
               <Text style={styles.checkoutText}>Continuar</Text>
             </TouchableOpacity>
@@ -87,10 +86,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface, borderTopWidth: 1, borderTopColor: Colors.border,
     paddingHorizontal: Spacing.md, paddingTop: Spacing.md,
   },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.md },
   totalLabel: { fontSize: FontSize.md, color: Colors.textSecondary },
   totalValue: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text },
-  hint: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: Spacing.md },
   checkoutBtn: {
     backgroundColor: Colors.primary, height: 52, borderRadius: BorderRadius.md,
     alignItems: 'center', justifyContent: 'center',

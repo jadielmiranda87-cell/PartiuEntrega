@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Supabase CLI
+supabase/.temp/
+
 # Expo
 .expo/
 dist/

@@ -27,7 +27,8 @@
     "build:local:client": "cross-env APP_VARIANT=client npx eas build --platform android --profile client --local",
     "build:local:business": "cross-env APP_VARIANT=business npx eas build --platform android --profile comercio --local",
     "build:local:motoboy": "cross-env APP_VARIANT=motoboy npx eas build --platform android --profile entregador --local",
-    "build:local:all": "npm run build:local:client && npm run build:local:business && npm run build:local:motoboy"
+    "build:local:all": "npm run build:local:client && npm run build:local:business && npm run build:local:motoboy",
+    "edge:sync-maps-key": "node ./scripts/sync-edge-maps-secret.mjs"
   },
   "dependencies": {
     "@apollo/client": "^3.4.10",

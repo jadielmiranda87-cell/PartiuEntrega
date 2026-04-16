@@ -81,6 +81,9 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+/** Mesma chave do app.config.js / Maps SDK. Defina EXPO_PUBLIC_GOOGLE_MAPS_KEY no ambiente ou em android/gradle.properties (não commitar a chave real no git). */
+def googleMapsApiKey = System.getenv('EXPO_PUBLIC_GOOGLE_MAPS_KEY') ?: (findProperty('EXPO_PUBLIC_GOOGLE_MAPS_KEY') ?: '')
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -94,6 +97,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0.0"
+        manifestPlaceholders = [GOOGLE_MAPS_API_KEY: googleMapsApiKey]
     }
     signingConfigs {
         debug {

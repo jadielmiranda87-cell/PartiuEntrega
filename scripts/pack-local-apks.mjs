@@ -15,6 +15,10 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, copyFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const { loadAppVariantEnv } = require('./load-app-variant-env.js');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -50,8 +54,16 @@ function parseArgs(argv) {
   return { mode: 'one', env, wantClean };
 }
 
+/** Injeta EXPO_PUBLIC_GOOGLE_MAPS_KEY (e demais vars) do `.env` / `.env.{variant}` no Gradle — necessário para o meta-data do Maps no AndroidManifest. */
+function gradleEnvForVariant(appVariant) {
+  process.env.APP_VARIANT = appVariant;
+  process.env.EXPO_PUBLIC_APP_VARIANT = appVariant;
+  loadAppVariantEnv(ROOT);
+  return { ...process.env };
+}
+
 function runGradle(appVariant, task) {
-  const env = { ...process.env, APP_VARIANT: appVariant };
+  const env = gradleEnvForVariant(appVariant);
   const r = spawnSync(gradle, [task, '--no-daemon'], {
     cwd: ANDROID,
     env,
