@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+// Native-only — Metro resolves delivery-map-picker.web.tsx on web automatically.
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +8,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -45,19 +47,6 @@ export default function DeliveryMapPickerScreen() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
 
-  const mapModule = useMemo(() => {
-    if (Platform.OS === 'web') return null;
-    try {
-      const m = require('react-native-maps');
-      return {
-        MapView: m.default as React.ComponentType<any>,
-        Marker: m.Marker as React.ComponentType<any>,
-        PROVIDER_GOOGLE: m.PROVIDER_GOOGLE as string | undefined,
-      };
-    } catch {
-      return null;
-    }
-  }, []);
 
   const refreshPreview = useCallback(async (lat: number, lng: number) => {
     setPreviewLoading(true);
@@ -132,38 +121,6 @@ export default function DeliveryMapPickerScreen() {
     }
   };
 
-  if (Platform.OS === 'web') {
-    return (
-      <SafeAreaView style={styles.webFallback} edges={['top', 'bottom']}>
-        <TouchableOpacity style={styles.backFab} onPress={() => router.back()} hitSlop={12}>
-          <MaterialIcons name="arrow-back" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.webTitle}>Mapa no celular</Text>
-        <Text style={styles.webSub}>O ajuste fino no mapa funciona no app Android ou iOS. Use os campos de endereço na web.</Text>
-        <TouchableOpacity style={styles.confirmBtn} onPress={() => router.back()}>
-          <Text style={styles.confirmBtnText}>Voltar</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  const MM = mapModule;
-  if (!MM) {
-    return (
-      <SafeAreaView style={styles.webFallback} edges={['top', 'bottom']}>
-        <TouchableOpacity style={styles.backFab} onPress={() => router.back()} hitSlop={12}>
-          <MaterialIcons name="arrow-back" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.webTitle}>Mapa indisponível</Text>
-        <Text style={styles.webSub}>Não foi possível carregar o mapa neste dispositivo.</Text>
-        <TouchableOpacity style={styles.confirmBtn} onPress={() => router.back()}>
-          <Text style={styles.confirmBtnText}>Voltar</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
-
-  const { MapView, Marker, PROVIDER_GOOGLE } = MM;
   const androidKey = getAndroidGoogleMapsKey();
   const mapProvider = Platform.OS === 'android' && androidKey ? PROVIDER_GOOGLE : undefined;
 
@@ -313,8 +270,5 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   confirmBtnText: { fontSize: FontSize.md, fontWeight: '800', color: Colors.white },
-  webFallback: { flex: 1, padding: Spacing.lg, justifyContent: 'center', backgroundColor: Colors.background },
-  webTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text, marginBottom: Spacing.sm },
-  webSub: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.lg },
   backFab: { position: 'absolute', top: Spacing.lg, left: Spacing.md, zIndex: 2 },
 });
