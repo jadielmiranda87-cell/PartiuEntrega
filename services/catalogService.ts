@@ -5,18 +5,36 @@ import type { Product, ProductCategory, Business } from '@/types';
 const BUSINESS_PUBLIC_SELECT =
   'id, name, phone, address, address_number, complement, neighborhood, city, state, cep, cnpj, opening_hours, created_at, billing_plan, latitude, longitude';
 
+/** Mesmo conjunto sem geo — use quando `20260418120000_businesses_lat_lng.sql` ainda não rodou no Supabase. */
+const BUSINESS_PUBLIC_SELECT_NO_GEO =
+  'id, name, phone, address, address_number, complement, neighborhood, city, state, cep, cnpj, opening_hours, created_at, billing_plan';
+
 /** Banco remoto sem migração `20260410130000_product_promo_fields.sql` — PostgREST acusa schema cache. */
 function isMissingProductPromoColumnsError(message: string): boolean {
   return /compare_price|max_per_order|schema cache/i.test(message);
 }
 
+function isMissingLatLngColumnsError(message: string): boolean {
+  return /\b(latitude|longitude)\b.*does not exist|column .*\.(latitude|longitude) does not exist/i.test(message);
+}
+
 export async function getBusinessById(id: string): Promise<Business | null> {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('businesses')
     .select(BUSINESS_PUBLIC_SELECT)
     .eq('id', id)
     .single();
+  if (error && isMissingLatLngColumnsError(error.message)) {
+    console.warn(
+      '[Catalog] businesses sem latitude/longitude no banco — rode supabase/migrations/20260418120000_businesses_lat_lng.sql (ou apply_public_catalog_read.sql).'
+    );
+    ({ data, error } = await supabase
+      .from('businesses')
+      .select(BUSINESS_PUBLIC_SELECT_NO_GEO)
+      .eq('id', id)
+      .single());
+  }
   if (error) {
     console.warn('[Catalog] getBusinessById', id, error.message, error.code);
     return null;
@@ -36,10 +54,19 @@ export async function getProductById(id: string): Promise<Product | null> {
 
 export async function listBusinessesForExplore(): Promise<Business[]> {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('businesses')
     .select(BUSINESS_PUBLIC_SELECT)
     .order('name', { ascending: true });
+  if (error && isMissingLatLngColumnsError(error.message)) {
+    console.warn(
+      '[Catalog] businesses sem latitude/longitude no banco — rode supabase/migrations/20260418120000_businesses_lat_lng.sql (ou apply_public_catalog_read.sql).'
+    );
+    ({ data, error } = await supabase
+      .from('businesses')
+      .select(BUSINESS_PUBLIC_SELECT_NO_GEO)
+      .order('name', { ascending: true }));
+  }
   if (error) {
     console.warn('[Catalog] listBusinessesForExplore', error.message, error.code);
     return [];
@@ -160,10 +187,17 @@ export async function getCustomerExploreHome(options?: { productLimit?: number }
 }> {
   const limit = options?.productLimit ?? 280;
   const supabase = getSupabaseClient();
-  const [bizRes, prodRes] = await Promise.all([
+  const [bizFirst, prodRes] = await Promise.all([
     supabase.from('businesses').select(BUSINESS_PUBLIC_SELECT).order('name', { ascending: true }),
     supabase.from('products').select('*').order('created_at', { ascending: false }).limit(limit),
   ]);
+  let bizRes = bizFirst;
+  if (bizRes.error && isMissingLatLngColumnsError(bizRes.error.message)) {
+    console.warn(
+      '[Catalog] businesses sem latitude/longitude no banco — rode supabase/migrations/20260418120000_businesses_lat_lng.sql (ou apply_public_catalog_read.sql).'
+    );
+    bizRes = await supabase.from('businesses').select(BUSINESS_PUBLIC_SELECT_NO_GEO).order('name', { ascending: true });
+  }
 
   const errMsg = bizRes.error?.message ?? prodRes.error?.message ?? null;
   if (bizRes.error) {

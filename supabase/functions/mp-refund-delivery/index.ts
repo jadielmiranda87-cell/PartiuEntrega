@@ -130,6 +130,7 @@ Deno.serve(async (req: Request) => {
     headers: {
       Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
       'Content-Type': 'application/json',
+      'X-Idempotency-Key': crypto.randomUUID(),
     },
     body: JSON.stringify({}),
   });

@@ -73,12 +73,14 @@ export async function getAddressSuggestions(
 
 export async function geocodeAddress(
   address?: string,
-  place_id?: string
+  place_id?: string,
+  options?: { components?: string }
 ): Promise<GeocodeResult | null> {
-  const { data, error } = await invokeEdge<{ result: GeocodeResult | null }>('maps-geocode', {
-    address,
-    place_id,
-  });
+  const payload: { address?: string; place_id?: string; components?: string } = {};
+  if (address != null && address !== '') payload.address = address;
+  if (place_id != null && place_id !== '') payload.place_id = place_id;
+  if (options?.components) payload.components = options.components;
+  const { data, error } = await invokeEdge<{ result: GeocodeResult | null }>('maps-geocode', payload);
   if (error || !data?.result) return null;
   return data.result;
 }

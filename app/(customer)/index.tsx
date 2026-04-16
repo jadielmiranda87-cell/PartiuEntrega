@@ -255,7 +255,7 @@ export default function CustomerHomeScreen() {
           <Text style={styles.errorDetail}>
             {feedError}
             {'\n\n'}
-            Se os restaurantes já cadastraram itens, confira leitura pública em products e businesses (script supabase/scripts/apply_public_catalog_read.sql).
+            Se os restaurantes já cadastraram itens, confira leitura pública em products e businesses (script supabase/scripts/apply_public_catalog_read.sql). Se o erro citar latitude ou longitude, rode também supabase/migrations/20260418120000_businesses_lat_lng.sql no SQL Editor.
           </Text>
         </View>
       ) : null}

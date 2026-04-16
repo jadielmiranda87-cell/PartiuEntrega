@@ -7,7 +7,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { address, place_id, latlng } = await req.json();
+    const { address, place_id, latlng, components } = await req.json();
 
     const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
     if (!apiKey) {
@@ -20,10 +20,14 @@ Deno.serve(async (req: Request) => {
     const params = new URLSearchParams({ key: apiKey, language: 'pt-BR' });
     if (place_id) {
       params.set('place_id', place_id);
+      params.set('region', 'br');
     } else if (latlng && typeof latlng === 'string') {
       params.set('latlng', latlng.trim());
     } else if (address) {
       params.set('address', address);
+      // Evita "Avenida W2" cair em outro estado/país; app é Brasil.
+      params.set('region', 'br');
+      params.set('components', typeof components === 'string' && components.trim() ? components.trim() : 'country:BR');
     } else {
       return new Response(JSON.stringify({ error: 'address, place_id, or latlng required' }), {
         status: 400,

@@ -4,6 +4,7 @@
  *
  * Uso:
  *   node scripts/download-eas-apks.mjs
+ *   node scripts/download-eas-apks.mjs client      # só um (comercio | entregador)
  *
  * IDs padrão = últimos disparos (sobrescreva com env se precisar):
  *   EAS_BUILD_CLIENT_ID, EAS_BUILD_COMERCIO_ID, EAS_BUILD_ENTREGADOR_ID
@@ -20,20 +21,43 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const APKS = join(ROOT, 'apks');
 
-const TARGETS = [
+const ALL_TARGETS = [
   {
+    key: 'client',
     file: 'FastFud-cliente.apk',
     id: process.env.EAS_BUILD_CLIENT_ID || 'a132e5f9-1405-4199-b4d6-a8a7ea6279e4',
   },
   {
+    key: 'comercio',
     file: 'FastFood-comercio.apk',
     id: process.env.EAS_BUILD_COMERCIO_ID || '161346d4-2ccc-4313-87f1-1a53c27f9450',
   },
   {
+    key: 'entregador',
     file: 'FastFood-entregador.apk',
     id: process.env.EAS_BUILD_ENTREGADOR_ID || '915602fe-db8a-4f09-a56e-8f6a48481db7',
   },
 ];
+
+const KEY_ALIASES = {
+  client: 'client',
+  comercio: 'comercio',
+  business: 'comercio',
+  entregador: 'entregador',
+  motoboy: 'entregador',
+};
+
+function resolveTargets(argv) {
+  const arg = (argv[2] || '').toLowerCase();
+  if (!arg) return ALL_TARGETS;
+  const key = KEY_ALIASES[arg];
+  if (!key) {
+    console.error(`Alvo desconhecido: "${argv[2]}". Use: client | comercio | entregador`);
+    process.exit(1);
+  }
+  const t = ALL_TARGETS.find((x) => x.key === key);
+  return [t];
+}
 
 function runEas(args) {
   const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
@@ -132,6 +156,8 @@ async function downloadFile(url, dest) {
 }
 
 mkdirSync(APKS, { recursive: true });
+
+const TARGETS = resolveTargets(process.argv);
 
 const POLL_MS = 45_000;
 const MAX_WAIT_MS = 3 * 60 * 60_000;

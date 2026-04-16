@@ -9,6 +9,7 @@ import {
   Image,
   Linking,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
@@ -64,21 +65,47 @@ export default function OrderPaymentScreen() {
     }, [load])
   );
 
-  const openCheckoutPro = async () => {
+  const openCheckoutPro = () => {
     if (!id) return;
-    setBusy(true);
-    const { data, error } = await invokeDeliveryPayment({ action: 'preference', delivery_id: id });
-    setBusy(false);
-    if (error) {
-      showAlert('Pagamento', error);
-      return;
-    }
-    const url = (data?.checkout_url as string) || '';
-    if (url) {
-      const can = await Linking.canOpenURL(url);
-      if (can) await Linking.openURL(url);
-      else showAlert('Pagamento', 'Não foi possível abrir o link do Mercado Pago.');
-    }
+    showAlert(
+      'Continuar para o pagamento?',
+      'Na próxima tela (navegador seguro) você escolhe como pagar: Pix, cartão de crédito ou débito de qualquer banco, saldo Mercado Pago, etc.\n\nQuer pagar Pix pelo app do seu banco sem passar por essa etapa? Use "Gerar QR Pix" abaixo e abra o Pix no app que preferir.\n\nO pagamento é processado com segurança pelo Mercado Pago (intermediário).',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          onPress: () => {
+            void (async () => {
+              setBusy(true);
+              try {
+                const { data, error } = await invokeDeliveryPayment({ action: 'preference', delivery_id: id });
+                if (error) {
+                  showAlert('Pagamento', error);
+                  return;
+                }
+                const url = (data?.checkout_url as string) || '';
+                if (!url) {
+                  showAlert('Pagamento', 'Link do checkout indisponível.');
+                  return;
+                }
+                try {
+                  await WebBrowser.openBrowserAsync(url, {
+                    enableBarCollapsing: false,
+                    showInRecents: true,
+                  });
+                } catch {
+                  const can = await Linking.canOpenURL(url);
+                  if (can) await Linking.openURL(url);
+                  else showAlert('Pagamento', 'Não foi possível abrir o checkout.');
+                }
+              } finally {
+                setBusy(false);
+              }
+            })();
+          },
+        },
+      ]
+    );
   };
 
   const startPix = async () => {
@@ -187,25 +214,10 @@ export default function OrderPaymentScreen() {
       ) : (
         <>
           <Text style={styles.hint}>
-            Escolha Pix, cartão salvo (se já tiver usado antes) ou abra o Mercado Pago para crédito, débito ou Pix no
-            checkout — após a primeira compra com cartão por lá, o cartão pode aparecer aqui para as próximas.
+            Você pode pagar com Pix por aqui (QR ou copia e cola no app do banco que quiser) ou ir ao checkout seguro
+            para cartão de qualquer bandeira/banco, Pix no checkout ou outros meios. Cartões salvos aparecem aqui depois
+            que você já pagou com cartão pelo checkout pelo menos uma vez.
           </Text>
-
-          <TouchableOpacity
-            style={[styles.primaryBtn, busy && styles.disabled]}
-            onPress={openCheckoutPro}
-            disabled={busy}
-            activeOpacity={0.9}
-          >
-            {busy ? (
-              <ActivityIndicator color={Colors.white} />
-            ) : (
-              <>
-                <MaterialIcons name="open-in-new" size={22} color={Colors.white} />
-                <Text style={styles.primaryBtnText}>Mercado Pago (Pix, crédito ou débito)</Text>
-              </>
-            )}
-          </TouchableOpacity>
 
           <Text style={styles.section}>Pix no app</Text>
           <TouchableOpacity style={[styles.secondaryBtn, busy && styles.disabled]} onPress={startPix} disabled={busy}>
@@ -224,6 +236,23 @@ export default function OrderPaymentScreen() {
               <Text style={styles.copyBtnText}>Copiar código Pix</Text>
             </TouchableOpacity>
           ) : null}
+
+          <Text style={[styles.section, { marginTop: Spacing.xl }]}>Cartão ou Pix no checkout</Text>
+          <TouchableOpacity
+            style={[styles.primaryBtn, busy && styles.disabled]}
+            onPress={openCheckoutPro}
+            disabled={busy}
+            activeOpacity={0.9}
+          >
+            {busy ? (
+              <ActivityIndicator color={Colors.white} />
+            ) : (
+              <>
+                <MaterialIcons name="open-in-new" size={22} color={Colors.white} />
+                <Text style={styles.primaryBtnText}>Abrir checkout seguro</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
           {cards.length > 0 ? (
             <>
@@ -249,8 +278,9 @@ export default function OrderPaymentScreen() {
           ) : null}
 
           <Text style={styles.footNote}>
-            O primeiro cadastro de cartão costuma ser feito no checkout do Mercado Pago. Depois do pagamento aprovado, o
-            cartão pode ser guardado aqui para uso rápido.
+            O checkout é operado pelo Mercado Pago; lá você escolhe cartão (de qualquer banco), Pix ou outro meio. O
+            primeiro cadastro de cartão costuma ser feito nessa etapa. Depois do pagamento aprovado, o cartão pode ser
+            guardado aqui para uso rápido.
           </Text>
         </>
       )}
