@@ -1,12 +1,26 @@
 -- Execute no SQL Editor (Supabase / OnSpace) se ao confirmar pedido no app cliente aparecer:
 -- "new row violates row-level security policy for table deliveries"
 --
--- Conteúdo = migração 20260420120000_deliveries_rls_policies.sql (idempotente).
+-- Alinhado à migração 20260420120000_deliveries_rls_policies.sql (idempotente).
+-- Inclui DROP das políticas antigas com nomes delivery_* (histórico branch main).
+
+GRANT USAGE ON SCHEMA public TO authenticated;
 
 ALTER TABLE public.deliveries ENABLE ROW LEVEL SECURITY;
 
 GRANT SELECT, INSERT, UPDATE ON public.deliveries TO authenticated;
 GRANT ALL ON public.deliveries TO service_role;
+
+-- Nomes antigos (branch main / versões anteriores)
+DROP POLICY IF EXISTS "delivery_customer_insert_own" ON public.deliveries;
+DROP POLICY IF EXISTS "delivery_customer_select_own" ON public.deliveries;
+DROP POLICY IF EXISTS "delivery_insert_business" ON public.deliveries;
+DROP POLICY IF EXISTS "delivery_business_select_own" ON public.deliveries;
+DROP POLICY IF EXISTS "delivery_business_update_own" ON public.deliveries;
+DROP POLICY IF EXISTS "delivery_motoboy_select" ON public.deliveries;
+DROP POLICY IF EXISTS "delivery_motoboy_update_assigned" ON public.deliveries;
+DROP POLICY IF EXISTS "delivery_admin_select_all" ON public.deliveries;
+DROP POLICY IF EXISTS "delivery_admin_update_all" ON public.deliveries;
 
 DROP POLICY IF EXISTS "deliveries_insert_customer_app" ON public.deliveries;
 DROP POLICY IF EXISTS "deliveries_insert_business_manual" ON public.deliveries;
@@ -17,6 +31,7 @@ DROP POLICY IF EXISTS "deliveries_select_admin" ON public.deliveries;
 DROP POLICY IF EXISTS "deliveries_update_business_owner" ON public.deliveries;
 DROP POLICY IF EXISTS "deliveries_update_motoboy" ON public.deliveries;
 
+-- Cliente: criar pedido pelo app (checkout)
 CREATE POLICY "deliveries_insert_customer_app"
   ON public.deliveries
   FOR INSERT
@@ -28,6 +43,7 @@ CREATE POLICY "deliveries_insert_customer_app"
     AND EXISTS (SELECT 1 FROM public.businesses b WHERE b.id = business_id)
   );
 
+-- Comércio: criar entrega manual (Nova Entrega)
 CREATE POLICY "deliveries_insert_business_manual"
   ON public.deliveries
   FOR INSERT
@@ -41,12 +57,14 @@ CREATE POLICY "deliveries_insert_business_manual"
     AND customer_user_id IS NULL
   );
 
+-- Cliente: ver próprios pedidos
 CREATE POLICY "deliveries_select_customer_own"
   ON public.deliveries
   FOR SELECT
   TO authenticated
   USING (customer_user_id = auth.uid());
 
+-- Comércio: ver pedidos da própria loja
 CREATE POLICY "deliveries_select_business_own"
   ON public.deliveries
   FOR SELECT
@@ -58,6 +76,7 @@ CREATE POLICY "deliveries_select_business_own"
     )
   );
 
+-- Motoboy: fila pendente + corridas atribuídas a ele
 CREATE POLICY "deliveries_select_motoboy"
   ON public.deliveries
   FOR SELECT
@@ -73,6 +92,7 @@ CREATE POLICY "deliveries_select_motoboy"
     )
   );
 
+-- Admin: painel (requer user_profiles.user_type = 'admin')
 CREATE POLICY "deliveries_select_admin"
   ON public.deliveries
   FOR SELECT
@@ -84,6 +104,7 @@ CREATE POLICY "deliveries_select_admin"
     )
   );
 
+-- Comércio: atualizar pedidos (ex.: cancelar no painel)
 CREATE POLICY "deliveries_update_business_owner"
   ON public.deliveries
   FOR UPDATE
@@ -101,6 +122,7 @@ CREATE POLICY "deliveries_update_business_owner"
     )
   );
 
+-- Motoboy: aceitar (pending → assigned), coletar, entregar, devolver à fila
 CREATE POLICY "deliveries_update_motoboy"
   ON public.deliveries
   FOR UPDATE
