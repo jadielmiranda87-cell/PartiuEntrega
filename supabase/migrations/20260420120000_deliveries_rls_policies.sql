@@ -1,27 +1,13 @@
--- Execute no SQL Editor (Supabase / OnSpace) se ao confirmar pedido no app cliente aparecer:
--- "new row violates row-level security policy for table deliveries"
---
--- Alinhado à migração 20260420120000_deliveries_rls_policies.sql (idempotente).
--- Inclui DROP das políticas antigas com nomes delivery_* (histórico branch main).
-
-GRANT USAGE ON SCHEMA public TO authenticated;
+-- RLS em deliveries: app cliente (INSERT pedido), comércio (INSERT manual + SELECT/UPDATE próprios),
+-- motoboy (pool pending + corridas atribuídas), admin (SELECT tudo).
+-- Idempotente: rode no SQL Editor se o erro for "violates row-level security policy" ao confirmar pedido.
 
 ALTER TABLE public.deliveries ENABLE ROW LEVEL SECURITY;
 
 GRANT SELECT, INSERT, UPDATE ON public.deliveries TO authenticated;
 GRANT ALL ON public.deliveries TO service_role;
 
--- Nomes antigos (branch main / versões anteriores)
-DROP POLICY IF EXISTS "delivery_customer_insert_own" ON public.deliveries;
-DROP POLICY IF EXISTS "delivery_customer_select_own" ON public.deliveries;
-DROP POLICY IF EXISTS "delivery_insert_business" ON public.deliveries;
-DROP POLICY IF EXISTS "delivery_business_select_own" ON public.deliveries;
-DROP POLICY IF EXISTS "delivery_business_update_own" ON public.deliveries;
-DROP POLICY IF EXISTS "delivery_motoboy_select" ON public.deliveries;
-DROP POLICY IF EXISTS "delivery_motoboy_update_assigned" ON public.deliveries;
-DROP POLICY IF EXISTS "delivery_admin_select_all" ON public.deliveries;
-DROP POLICY IF EXISTS "delivery_admin_update_all" ON public.deliveries;
-
+-- Remover políticas antigas com os mesmos nomes (reaplicar sem conflito)
 DROP POLICY IF EXISTS "deliveries_insert_customer_app" ON public.deliveries;
 DROP POLICY IF EXISTS "deliveries_insert_business_manual" ON public.deliveries;
 DROP POLICY IF EXISTS "deliveries_select_customer_own" ON public.deliveries;

@@ -113,6 +113,12 @@ Deno.serve(async (req: Request) => {
     'Content-Type': 'application/json',
   };
 
+  /** MP exige X-Idempotency-Key em POST /v1/payments (Pix, cartão token, etc.). */
+  const mpPaymentHeaders = () => ({
+    ...mpHeaders,
+    'X-Idempotency-Key': crypto.randomUUID(),
+  });
+
   try {
     if (action === 'preference') {
       const preference = {
@@ -197,7 +203,7 @@ Deno.serve(async (req: Request) => {
 
       const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
         method: 'POST',
-        headers: mpHeaders,
+        headers: mpPaymentHeaders(),
         body: JSON.stringify(payBody),
       });
 
@@ -273,7 +279,7 @@ Deno.serve(async (req: Request) => {
 
       const mpRes = await fetch('https://api.mercadopago.com/v1/payments', {
         method: 'POST',
-        headers: mpHeaders,
+        headers: mpPaymentHeaders(),
         body: JSON.stringify(payBody),
       });
 

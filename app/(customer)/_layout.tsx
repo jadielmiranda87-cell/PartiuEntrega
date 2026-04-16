@@ -15,7 +15,15 @@ export default function CustomerLayout() {
     >
       <Stack.Screen name="index" options={{ title: APP_DISPLAY_NAME, headerLargeTitle: false }} />
       <Stack.Screen name="cart" options={{ title: 'Carrinho' }} />
-      <Stack.Screen name="checkout" options={{ title: 'Finalizar pedido' }} />
+      <Stack.Screen name="checkout" options={{ title: 'Finalizar compra' }} />
+      <Stack.Screen
+        name="delivery-map-picker"
+        options={{
+          headerShown: false,
+          presentation: 'fullScreenModal',
+          animation: 'slide_from_bottom',
+        }}
+      />
       <Stack.Screen name="order-payment" options={{ title: 'Pagamento' }} />
       <Stack.Screen name="saved-cards" options={{ title: 'Cartões salvos' }} />
       <Stack.Screen name="orders" options={{ title: 'Meus pedidos' }} />
