@@ -1,3 +1,4 @@
+// Native-only — Metro usa este arquivo no iOS/Android; na web usa delivery-map-picker.web.tsx.
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -21,7 +22,7 @@ import { useAlert } from '@/template';
 
 type LatLng = { latitude: number; longitude: number };
 
-const DEFAULT_CENTER: LatLng = { latitude: -16.821, longitude: -49.244 };
+const DEFAULT_CENTER: LatLng = { latitude: -16.821, longitude: -49.244 }; // Aparecida de Goiânia ~
 
 function getAndroidGoogleMapsKey(): string {
   const ex = Constants.expoConfig as Record<string, unknown> | null | undefined;
