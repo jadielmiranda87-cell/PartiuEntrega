@@ -17,6 +17,9 @@ export async function getBusinessDeliveries(businessId: string): Promise<Deliver
     .from('deliveries')
     .select('*, motoboys(name, phone)')
     .eq('business_id', businessId)
+    // Regra: Comércio só vê pedidos pagos (ou cancelados/entregues que já foram pagos um dia)
+    // Pedidos 'pending_payment' ficam ocultos para o restaurante.
+    .neq('payment_status', 'awaiting_payment')
     .order('created_at', { ascending: false });
   return data ?? [];
 }
@@ -27,6 +30,8 @@ export async function getPendingDeliveries(motoboyId?: string): Promise<Delivery
     .from('deliveries')
     .select('*, businesses(name, address, address_number, neighborhood, city, state, cep, phone)')
     .in('status', ['pending'])
+    // Regra: Motoboy só vê pedidos que já foram pagos
+    .eq('payment_status', 'paid')
     .order('created_at', { ascending: false });
 
   const all = data ?? [];
@@ -121,20 +126,30 @@ export async function getAllDeliveries(): Promise<Delivery[]> {
   return data ?? [];
 }
 
-/**
- * Motoboy cancels/refuses a ride BEFORE collect — sets it back to pending.
- */
-export async function cancelDelivery(deliveryId: string): Promise<{ error: string | null }> {
+export async function businessCancelDelivery(deliveryId: string): Promise<{ error: string | null }> {
   const supabase = getSupabaseClient();
+
+  // 1. Busca os dados do pedido para checar o status de pagamento
+  const { data: delivery } = await supabase
+    .from('deliveries')
+    .select('payment_status, id')
+    .eq('id', deliveryId)
+    .single();
+
+  // 2. Se o pedido já foi pago, precisamos processar o reembolso
+  if (delivery?.payment_status === 'paid') {
+    const { error: refundError } = await supabase.functions.invoke('mp-delivery-payment', {
+      body: { action: 'refund', delivery_id: deliveryId }
+    });
+    if (refundError) return { error: 'Falha ao processar reembolso no Mercado Pago: ' + refundError.message };
+  }
+
+  // 3. Atualiza o status do pedido para cancelado
   const { error } = await supabase
     .from('deliveries')
-    .update({
-      status: 'pending',
-      motoboy_id: null,
-      assigned_at: null,
-    })
-    .eq('id', deliveryId)
-    .eq('status', 'assigned'); // only allowed before collect
+    .update({ status: 'cancelled' })
+    .eq('id', deliveryId);
+
   return { error: error ? error.message : null };
 }
 

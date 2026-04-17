@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAlert } from '@/template';
-import { getDeliveryById, updateDeliveryStatus } from '@/services/deliveryService';
+import { getDeliveryById, businessCancelDelivery } from '@/services/deliveryService';
 import { Delivery } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,9 +42,14 @@ export default function DeliveryDetailScreen() {
       {
         text: 'Cancelar entrega', style: 'destructive', onPress: async () => {
           setCancelling(true);
-          await updateDeliveryStatus(delivery.id, 'cancelled');
+          const { error } = await businessCancelDelivery(delivery.id);
           setCancelling(false);
-          router.back();
+          if (error) {
+            showAlert('Erro ao cancelar', error);
+          } else {
+            showAlert('Pedido Cancelado', 'O pedido foi cancelado e o estorno foi solicitado ao Mercado Pago.');
+            router.back();
+          }
         }
       }
     ]);

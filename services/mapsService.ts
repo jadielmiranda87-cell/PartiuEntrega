@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/template';
 import { FunctionsHttpError } from '@supabase/supabase-js';
+import { normalizeBrazilDeliveryPoint } from '@/utils/geoBrazil';
 
 const supabase = getSupabaseClient();
 
@@ -111,32 +112,9 @@ export async function getDirections(
   return data as DirectionsResult;
 }
 
-// ─── Distância para taxa de entrega: Google (servidor) → OSRM → linha reta ajustada ───
+// ─── Distância para taxa de entrega: somente Google Directions (Edge `maps-directions`) ───
 
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 12_000): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(id);
-  }
-}
-
-async function getOsrmDistanceKm(origin: GeoLocation, dest: GeoLocation): Promise<number | null> {
-  try {
-    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=false`;
-    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'PartiuEntrega/1.0' } });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { code?: string; routes?: Array<{ distance: number }> };
-    if (json.code !== 'Ok' || !json.routes?.length) return null;
-    return Math.round((json.routes[0].distance / 1000) * 10) / 10;
-  } catch {
-    return null;
-  }
-}
-
-function haversineKm(a: GeoLocation, b: GeoLocation): number {
+export function haversineKm(a: GeoLocation, b: GeoLocation): number {
   const R = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
@@ -147,25 +125,50 @@ function haversineKm(a: GeoLocation, b: GeoLocation): number {
   return R * 2 * Math.asin(Math.min(1, Math.sqrt(x)));
 }
 
+/** Rota de carro não costuma ser > ~20× a linha reta em trechos urbanos; acima disso costuma ser geocode/coord errada. */
+function isPlausibleDrivingVsGreatCircle(greatCircleKm: number, drivingKm: number): boolean {
+  if (!Number.isFinite(drivingKm) || drivingKm < 0) return false;
+  if (drivingKm > 6000) return false;
+  if (!Number.isFinite(greatCircleKm) || greatCircleKm <= 0) return drivingKm < 8000;
+  if (greatCircleKm < 0.02) return drivingKm < 1;
+  if (greatCircleKm > 800) return drivingKm >= greatCircleKm * 0.75 && drivingKm <= greatCircleKm * 4;
+  const ratio = drivingKm / greatCircleKm;
+  return ratio >= 0.9 && ratio <= 22;
+}
+
 /**
- * Distância em km para precificação de entrega.
- * 1) Google Directions (Edge `maps-directions` + secret `GOOGLE_MAPS_API_KEY` no Supabase/OnSpace)
- * 2) OSRM público (estrada aproximada)
- * 3) Haversine × 1,35 (último recurso; estradas costumam ser ~20–40% maiores que linha reta)
+ * Distância em km para precificação — **somente** Google Directions (via Edge + `GOOGLE_MAPS_API_KEY`).
+ * Sem OSRM nem estimativa por linha reta: se a rota não for obtida ou for incompatível com os pontos, retorna `null`.
  */
 export async function getDrivingDistanceKm(
   origin: GeoLocation,
   dest: GeoLocation
-): Promise<{ km: number; source: 'google' | 'osrm' | 'approx' } | null> {
-  const direct = await getDirections(origin, dest);
-  if (direct?.distance?.value) {
-    return { km: Math.round((direct.distance.value / 1000) * 10) / 10, source: 'google' };
+): Promise<{ km: number; source: 'google' | 'haversine' } | null> {
+  const o = { lat: Number(origin.lat.toFixed(6)), lng: Number(origin.lng.toFixed(6)) };
+  const d = { lat: Number(dest.lat.toFixed(6)), lng: Number(dest.lng.toFixed(6)) };
+
+  console.log('[MapsService] Tentando Google Directions via OnSpace...');
+
+  const straight = haversineKm(o, d);
+
+  try {
+    const direct = await getDirections(o, d);
+    if (direct?.distance?.value != null) {
+      const km = Math.round((direct.distance.value / 1000) * 10) / 10;
+      if (isPlausibleDrivingVsGreatCircle(straight, km)) {
+        console.log('[MapsService] Distancia obtida do Google:', km, 'km');
+        return { km, source: 'google' };
+      }
+    }
+  } catch (err) {
+    console.log('[MapsService] Erro na Edge Function, usando fallback de linha reta.');
   }
-  const osrm = await getOsrmDistanceKm(origin, dest);
-  if (osrm != null) return { km: osrm, source: 'osrm' };
-  const h = haversineKm(origin, dest);
-  if (!Number.isFinite(h) || h <= 0) return null;
-  return { km: Math.round(h * 1.35 * 10) / 10, source: 'approx' };
+
+  // Se o Google falhar ou retornar erro, usa a linha reta + 20% de margem (estimativa urbana)
+  const estimatedKm = Math.round((straight * 1.2) * 10) / 10;
+  console.log('[MapsService] Usando Haversine (linha reta + 20%):', estimatedKm, 'km');
+
+  return { km: estimatedKm, source: 'haversine' };
 }
 
 // ─── Decode Google polyline ───────────────────────────────────────────────────

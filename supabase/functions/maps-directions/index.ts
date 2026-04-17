@@ -27,6 +27,8 @@ Deno.serve(async (req: Request) => {
       key: apiKey,
       language: 'pt-BR',
       mode: 'driving',
+      units: 'metric',
+      region: 'br',
     });
 
     const url = `https://maps.googleapis.com/maps/api/directions/json?${params}`;
@@ -41,16 +43,31 @@ Deno.serve(async (req: Request) => {
     }
 
     const route = data.routes[0];
-    const leg = route.legs[0];
+    const legs = route.legs ?? [];
+    let totalMeters = 0;
+    let totalSeconds = 0;
+    for (const leg of legs) {
+      totalMeters += leg.distance?.value ?? 0;
+      totalSeconds += leg.duration?.value ?? 0;
+    }
+    const leg0 = legs[0];
+    const distanceText =
+      totalMeters >= 1000
+        ? `${(totalMeters / 1000).toFixed(1).replace('.', ',')} km`
+        : `${Math.round(totalMeters)} m`;
+    const durationText = leg0?.duration?.text ?? '';
 
-    console.log(`Directions: ${originStr} → ${destStr} = ${leg.distance?.text}, ${leg.duration?.text}`);
+    console.log(`Directions: ${originStr} → ${destStr} = ${distanceText}, ${durationText} (${legs.length} trecho(s))`);
 
     return new Response(JSON.stringify({
       polyline: route.overview_polyline?.points ?? '',
-      distance: leg.distance,      // { text: "12.3 km", value: 12300 }
-      duration: leg.duration,      // { text: "15 mins", value: 900 }
-      start_location: leg.start_location,
-      end_location: leg.end_location,
+      distance: { text: distanceText, value: totalMeters },
+      duration: {
+        text: durationText,
+        value: totalSeconds || (leg0?.duration?.value ?? 0),
+      },
+      start_location: leg0?.start_location,
+      end_location: legs[legs.length - 1]?.end_location ?? leg0?.end_location,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

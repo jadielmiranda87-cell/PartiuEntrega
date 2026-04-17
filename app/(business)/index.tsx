@@ -13,40 +13,14 @@ import {
   getAddressSuggestions,
   geocodeAddress,
   getDirections,
+  getDrivingDistanceKm,
   GeocodeResult,
   PlacePrediction,
 } from '@/services/mapsService';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency } from '@/utils/links';
-
-// ─── Fallback: OSRM road distance ────────────────────────────────────────────
-
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = 8000): Promise<Response> {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    clearTimeout(id);
-  }
-}
-
-async function getOsrmDistanceKm(
-  origin: { lat: number; lng: number },
-  dest: { lat: number; lng: number }
-): Promise<number | null> {
-  try {
-    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=false`;
-    const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'FastFood-Comercio/1.0' } });
-    if (!res.ok) return null;
-    const json = await res.json();
-    if (json.code !== 'Ok' || !json.routes?.length) return null;
-    return Math.round((json.routes[0].distance / 1000) * 10) / 10;
-  } catch {
-    return null;
-  }
-}
+import { parseConfigDecimal } from '@/utils/parseConfigDecimal';
 
 // ─── Input helper ─────────────────────────────────────────────────────────────
 
@@ -108,8 +82,8 @@ export default function NewDeliveryScreen() {
 
   useEffect(() => {
     getAppConfig().then((c) => {
-      setPricePerKm(parseFloat(c.price_per_km));
-      setMinPrice(parseFloat(c.min_delivery_price));
+      setPricePerKm(parseConfigDecimal(c.price_per_km, 2.5));
+      setMinPrice(parseConfigDecimal(c.min_delivery_price, 8));
     });
   }, []);
 
@@ -145,13 +119,13 @@ export default function NewDeliveryScreen() {
         geocodeAddress(destStr),
       ]);
       if (originGeo && destGeo) {
-        const km = await getOsrmDistanceKm(
+        const dist = await getDrivingDistanceKm(
           { lat: originGeo.location.lat, lng: originGeo.location.lng },
           { lat: destGeo.location.lat, lng: destGeo.location.lng }
         );
-        if (km !== null) {
-          setDistanceKm(km);
-          setDistanceInput(String(km));
+        if (dist != null) {
+          setDistanceKm(dist.km);
+          setDistanceInput(String(dist.km));
           return;
         }
       }

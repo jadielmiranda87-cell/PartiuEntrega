@@ -1,12 +1,10 @@
 /**
  * NativeMap.tsx — Native implementation (iOS / Android)
  *
- * Uses PROVIDER_DEFAULT (OpenStreetMap on Android, Apple Maps on iOS)
- * so no Google Maps API key is required in AndroidManifest.xml.
- *
- * Google Maps API is used server-side only (Edge Functions) for
- * Places Autocomplete, Directions and Geocoding — those never expose
- * the key to the client.
+ * Android: uses PROVIDER_GOOGLE when `EXPO_PUBLIC_GOOGLE_MAPS_KEY` is baked into
+ * the manifest (same as `delivery-map-picker.native.tsx`); otherwise the default
+ * provider (often OpenStreetMap via react-native-maps).
+ * iOS: Apple Maps (default provider).
  *
  * ErrorBoundary catches any native crash that might slip through.
  */
@@ -14,25 +12,41 @@
 import React, { Component, ReactNode } from 'react';
 import { Platform, View, Text, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { Colors } from '@/constants/theme';
+
+function getAndroidGoogleMapsKey(): string {
+  const ex = Constants.expoConfig as Record<string, unknown> | null | undefined;
+  const android = ex?.android as Record<string, unknown> | undefined;
+  const config = android?.config as Record<string, unknown> | undefined;
+  const gm = config?.googleMaps as Record<string, unknown> | undefined;
+  const fromManifest = typeof gm?.apiKey === 'string' ? gm.apiKey : '';
+  const extra = ex?.extra as Record<string, unknown> | undefined;
+  const fromExtra = typeof extra?.googleMapsApiKey === 'string' ? extra.googleMapsApiKey : '';
+  return fromManifest || fromExtra || '';
+}
 
 // ── Lazy require react-native-maps to avoid hard crash on import ──────────────
 let RNMapView: any = null;
 let RNMarker: any = null;
 let RNPolyline: any = null;
+let RN_PROVIDER_GOOGLE: any = undefined;
 
 try {
   const m = require('react-native-maps');
   RNMapView = m.default;
   RNMarker = m.Marker;
   RNPolyline = m.Polyline;
+  RN_PROVIDER_GOOGLE = m.PROVIDER_GOOGLE;
 } catch {
   // Module unavailable — all guards below will prevent usage
 }
 
-// We never pass PROVIDER_GOOGLE to avoid requiring the native SDK key.
-// Passing undefined uses PROVIDER_DEFAULT (OpenStreetMap / Apple Maps).
-export const NATIVE_PROVIDER_GOOGLE = undefined;
+const androidMapsKey = Platform.OS === 'android' ? getAndroidGoogleMapsKey() : '';
+const useGoogleOnAndroid = Platform.OS === 'android' && !!androidMapsKey && RN_PROVIDER_GOOGLE != null;
+
+/** Same symbol as `PROVIDER_GOOGLE` when Android + manifest key; else undefined (caller may omit `provider`). */
+export const NATIVE_PROVIDER_GOOGLE = useGoogleOnAndroid ? RN_PROVIDER_GOOGLE : undefined;
 
 const canShowMap = Platform.OS !== 'web' && !!RNMapView;
 
@@ -67,10 +81,10 @@ class MapErrorBoundary extends Component<{ style?: any; children: ReactNode }, E
 }
 
 // ── Safe MapView wrapper ──────────────────────────────────────────────────────
-// provider prop from the caller is intentionally ignored — always uses
-// PROVIDER_DEFAULT (undefined) to avoid requiring the Google Maps SDK key.
+// Matches checkout map picker: Google on Android when key is present; else default.
 export function NativeMapView(props: any) {
   const { style, children, provider: _ignored, ...rest } = props;
+  const mapProvider = useGoogleOnAndroid ? RN_PROVIDER_GOOGLE : undefined;
 
   if (!canShowMap) {
     return <MapPlaceholder style={style} />;
@@ -80,7 +94,7 @@ export function NativeMapView(props: any) {
     <MapErrorBoundary style={style}>
       <RNMapView
         style={style}
-        provider={undefined}
+        provider={mapProvider}
         {...rest}
       >
         {children}

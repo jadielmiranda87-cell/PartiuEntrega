@@ -111,12 +111,12 @@ android {
     productFlavors {
         client {
             dimension "appvariant"
-            applicationId 'com.fastfood.entregador'
+            applicationId 'com.fastfood.app'
             resValue "string", "app_name", "FastFud"
         }
         business {
             dimension "appvariant"
-            applicationId 'com.fastfood.entregador'
+            applicationId 'com.fastfood.comercio'
             resValue "string", "app_name", "FastFood Comércio"
         }
         motoboy {

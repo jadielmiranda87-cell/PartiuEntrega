@@ -65,7 +65,7 @@ module.exports = {
       edgeToEdgeEnabled: true,
       config: {
         googleMaps: {
-          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY || '',
+          apiKey: 'AIzaSyBc8HQ1X4uw6oGHRdzVsquazBQd2G4ofqs',
         },
       },
       permissions: [
@@ -136,7 +136,7 @@ module.exports = {
       eas: {
         projectId: '11df9a53-22b7-4186-b74e-acad19b19d66',
       },
-      googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY || '',
+      googleMapsApiKey: 'AIzaSyBc8HQ1X4uw6oGHRdzVsquazBQd2G4ofqs',
     },
   },
 };

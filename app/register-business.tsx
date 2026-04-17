@@ -12,6 +12,13 @@ import { getMotoboyByReferralCode } from '@/services/cashbackService';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { geocodeAddress, reverseGeocode, type GeoLocation } from '@/services/mapsService';
+import { requestLocationPermission } from '@/services/permissionsService';
+import { addressFormFromGeocode } from '@/utils/addressFromGeocode';
+import { consumeCheckoutMapPickerResult } from '@/services/checkoutMapPickerResult';
+import { useFocusEffect } from '@react-navigation/native';
+import * as Location from 'expo-location';
+
 type Step = 'form' | 'otp';
 
 export default function RegisterBusinessScreen() {
@@ -34,6 +41,10 @@ export default function RegisterBusinessScreen() {
   const [referralCode, setReferralCode] = useState('');
   const [referrerName, setReferrerName] = useState<string | null>(null);
   const [checkingCode, setCheckingCode] = useState(false);
+
+  // Localização "cravada"
+  const [businessCoords, setBusinessCoords] = useState<GeoLocation | null>(null);
+  const [loadingGps, setLoadingGps] = useState(false);
 
   // OTP field
   const [otp, setOtp] = useState('');
@@ -80,6 +91,52 @@ export default function RegisterBusinessScreen() {
     setStep('otp');
   };
 
+  // ── Seletor de Mapa ────────────────────────────────────────────────────────
+
+  const fillFromGeocode = (geo: any, pin: GeoLocation | null) => {
+    const f = addressFormFromGeocode(geo);
+    setAddress(f.customerAddress);
+    setAddressNumber(f.customerNumber);
+    setNeighborhood(f.customerNeighborhood);
+    setCity(f.customerCity);
+    setState(f.customerState);
+    setCep(f.customerCep);
+    setBusinessCoords(pin);
+  };
+
+  const useCurrentLocation = async () => {
+    const perm = await requestLocationPermission();
+    if (!perm.granted) {
+      showAlert('Localização', perm.reason);
+      return;
+    }
+    setLoadingGps(true);
+    try {
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      router.push({
+        pathname: '/(customer)/delivery-map-picker',
+        params: { lat: String(pos.coords.latitude), lng: String(pos.coords.longitude) },
+      });
+    } finally {
+      setLoadingGps(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const r = consumeCheckoutMapPickerResult();
+      if (!r) return;
+      if (r.geocode) {
+        fillFromGeocode(r.geocode, { lat: r.lat, lng: r.lng });
+      } else {
+        setBusinessCoords({ lat: r.lat, lng: r.lng });
+        reverseGeocode(r.lat, r.lng).then((g) => {
+          if (g) fillFromGeocode(g, { lat: r.lat, lng: r.lng });
+        });
+      }
+    }, [])
+  );
+
   // ── Step 2: verify OTP → session active → create business profile ──────────
 
   const handleVerifyOTP = async () => {
@@ -88,7 +145,6 @@ export default function RegisterBusinessScreen() {
       return;
     }
     setLoading(true);
-    // Passa 'business' para garantir que user_type seja gravado com sessão ativa
     const { error: otpError, userId } = await verifyRegistrationOTP(email.trim(), otp.trim(), 'business');
     if (otpError || !userId) {
       setLoading(false);
@@ -96,7 +152,6 @@ export default function RegisterBusinessScreen() {
       return;
     }
 
-    // Resolve referral code to motoboy id
     let referredByMotoboyId: string | undefined;
     if (referralCode.trim().length === 8) {
       const motoboy = await getMotoboyByReferralCode(referralCode);
@@ -106,6 +161,8 @@ export default function RegisterBusinessScreen() {
     const { error: bizError, data: createdBiz } = await createBusinessProfile(userId, {
       name, cnpj, phone, address, address_number: addressNumber,
       complement, neighborhood, city, state, cep,
+      latitude: businessCoords?.lat,
+      longitude: businessCoords?.lng,
       ...(referredByMotoboyId ? { referred_by_motoboy_id: referredByMotoboyId } : {}),
     });
 
@@ -114,7 +171,9 @@ export default function RegisterBusinessScreen() {
       showAlert('Erro ao salvar dados', bizError);
       return;
     }
-    if (createdBiz?.id) {
+
+    // Se já temos as coordenadas do mapa, não precisa rodar o sync de novo
+    if (createdBiz?.id && !businessCoords) {
       void syncBusinessCoordinates(createdBiz.id);
     }
     router.replace('/');
@@ -220,6 +279,20 @@ export default function RegisterBusinessScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}><MaterialIcons name="location-on" size={16} color={Colors.primary} /> Endereço</Text>
+
+          <TouchableOpacity
+            style={styles.mapBtn}
+            onPress={useCurrentLocation}
+            disabled={loadingGps}
+          >
+            {loadingGps ? <ActivityIndicator size="small" color={Colors.white} /> : (
+              <>
+                <MaterialIcons name="my-location" size={18} color={Colors.white} />
+                <Text style={styles.mapBtnText}>Marcar localização no mapa</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
           <InputField label="CEP *" value={cep} onChangeText={setCep} placeholder="00000-000" keyboardType="numeric" />
           <InputField label="Endereço *" value={address} onChangeText={setAddress} placeholder="Rua, Avenida..." />
           <View style={styles.row}>
@@ -312,6 +385,17 @@ const styles = StyleSheet.create({
   section: { backgroundColor: Colors.surface, borderRadius: BorderRadius.lg, padding: Spacing.md, gap: 0 },
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.primary, marginBottom: Spacing.md },
   row: { flexDirection: 'row' },
+  mapBtn: {
+    backgroundColor: Colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: BorderRadius.md,
+    gap: 8,
+    marginBottom: Spacing.md,
+  },
+  mapBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
   referralHint: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: Spacing.sm, lineHeight: 18 },
   referralInputRow: { position: 'relative' },
   referralInput: {
