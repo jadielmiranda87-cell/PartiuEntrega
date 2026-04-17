@@ -30,8 +30,9 @@ export async function getPendingDeliveries(motoboyId?: string): Promise<Delivery
     .from('deliveries')
     .select('*, businesses(name, address, address_number, neighborhood, city, state, cep, phone)')
     .in('status', ['pending'])
-    // Regra: Motoboy só vê pedidos que já foram pagos
+    // Regra: Motoboy só vê pedidos pagos E já aceitos pelo comércio
     .eq('payment_status', 'paid')
+    .not('business_accepted_at', 'is', null)
     .order('created_at', { ascending: false });
 
   const all = data ?? [];
@@ -114,6 +115,27 @@ export async function getCustomerDeliveries(customerUserId: string): Promise<Del
     .order('created_at', { ascending: false })
     .limit(80);
   return (data ?? []) as Delivery[];
+}
+
+/**
+ * Motoboy desiste da entrega antes da coleta.
+ * O pedido volta a ficar disponível ('pending') para outros entregadores.
+ */
+export async function motoboyAbandonDelivery(deliveryId: string): Promise<{ error: string | null }> {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from('deliveries')
+    .update({
+      status: 'pending',
+      motoboy_id: null,
+      assigned_at: null,
+      motoboy_lat: null,
+      motoboy_lng: null
+    })
+    .eq('id', deliveryId)
+    .eq('status', 'assigned'); // Só permite se ainda não foi coletado
+
+  return { error: error ? error.message : null };
 }
 
 export async function getAllDeliveries(): Promise<Delivery[]> {
