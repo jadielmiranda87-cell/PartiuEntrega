@@ -15,6 +15,7 @@ import { openWaze, openWhatsApp, formatCurrency, formatPhone } from '@/utils/lin
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { APP_SHORT_NAME, storageKey } from '@/constants/branding';
+import { stopLocationTracking } from '@/services/locationTrackingService';
 
 const pixKeyStorageKey = (motoboyId: string) => storageKey(`motoboyPixKey:${motoboyId}`);
 
@@ -53,12 +54,13 @@ export default function RideDetailScreen() {
           onPress: async () => {
             if (!delivery) return;
             setCancelling(true);
-            const { error } = await cancelDelivery(delivery.id);
+            const { error } = await updateDeliveryStatus(delivery.id, 'pending', { motoboy_id: null, assigned_at: null });
             setCancelling(false);
             if (error) {
               showAlert('Erro', 'Não foi possível cancelar. Tente novamente.');
               return;
             }
+            await stopLocationTracking();
             router.replace('/(motoboy)');
           },
         },
@@ -87,6 +89,10 @@ export default function RideDetailScreen() {
           const { error } = await updateDeliveryStatus(delivery.id, 'delivered', { delivered_at: new Date().toISOString() });
           setUpdating(false);
           if (error) { showAlert('Erro', error); return; }
+
+          // Para o rastreamento após a entrega concluída
+          await stopLocationTracking();
+
           // Navigate back to rides list immediately
           router.replace('/(motoboy)');
         }

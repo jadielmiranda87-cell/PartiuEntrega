@@ -10,11 +10,15 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { CartProvider } from '@/contexts/CartContext';
 import { RidesProvider } from '@/contexts/RidesContext';
 import { requestAllRuntimePermissions } from '@/services/permissionsService';
+import { defineLocationTask } from '@/services/locationTrackingService';
 
 import { storageKey } from '@/constants/branding';
 import { Colors } from '@/constants/theme';
 
 const PERMISSIONS_ASKED_KEY = storageKey('runtimePermissionsAsked');
+
+// Define a tarefa de localização em segundo plano no nível global
+defineLocationTask();
 
 export default function RootLayout() {
   useEffect(() => {

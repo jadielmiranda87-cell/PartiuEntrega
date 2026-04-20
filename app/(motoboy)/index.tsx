@@ -27,6 +27,7 @@ import { APP_SHORT_NAME } from '@/constants/branding';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { formatCurrency, formatDate, openWhatsApp } from '@/utils/links';
 import { requestLocationPermission, requestNotificationPermission } from '@/services/permissionsService';
+import { startLocationTracking } from '@/services/locationTrackingService';
 
 const EXPIRY_WARN_DAYS = 5;
 
@@ -191,6 +192,9 @@ export default function AvailableRidesScreen() {
       await loadDeliveries(false);
       return;
     }
+
+    // Inicia o rastreamento em tempo real ao aceitar a corrida
+    await startLocationTracking();
 
     const cfg = await ensureConfig();
     await setAcceptCooldown(motoboyProfile.id, cfg.acceptMinutes);

@@ -24,6 +24,13 @@ export default function CustomerLayout() {
           animation: 'slide_from_bottom',
         }}
       />
+      <Stack.Screen
+        name="track-delivery"
+        options={{
+          title: 'Acompanhar Entrega',
+          headerShown: false,
+        }}
+      />
       <Stack.Screen name="order-payment" options={{ title: 'Pagamento' }} />
       <Stack.Screen name="saved-cards" options={{ title: 'Cartões salvos' }} />
       <Stack.Screen name="orders" options={{ title: 'Meus pedidos' }} />

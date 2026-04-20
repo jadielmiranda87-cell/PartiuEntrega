@@ -8,6 +8,8 @@ import { Delivery } from '@/types';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { openWhatsApp, formatCurrency, formatDate, formatPhone } from '@/utils/links';
+import { useAppAuth } from '@/hooks/useAppAuth';
+import { updateDeliveryStatus } from '@/services/deliveryService';
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   pending: { label: 'Aguardando motoboy', color: Colors.warning },
@@ -22,9 +24,14 @@ export default function DeliveryDetailScreen() {
   const [delivery, setDelivery] = useState<Delivery | null>(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const { profile } = useAppAuth();
   const { showAlert } = useAlert();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  const isBusiness = profile?.user_type === 'business';
+  const isCustomer = profile?.user_type === 'customer';
 
   const loadDelivery = useCallback(async () => {
     if (!id) return;
@@ -34,6 +41,17 @@ export default function DeliveryDetailScreen() {
   }, [id]);
 
   useEffect(() => { loadDelivery(); }, [loadDelivery]);
+
+  const handleAcceptByBusiness = async () => {
+    if (!delivery) return;
+    setAccepting(true);
+    const { error } = await updateDeliveryStatus(delivery.id, 'pending', {
+      business_accepted_at: new Date().toISOString()
+    });
+    setAccepting(false);
+    if (error) showAlert('Erro', error);
+    else loadDelivery();
+  };
 
   const handleCancel = () => {
     if (!delivery || delivery.status !== 'pending') return;
@@ -172,9 +190,39 @@ export default function DeliveryDetailScreen() {
             </TouchableOpacity>
           </View>
 
-          {delivery.status === 'pending' && (
+          {/* Botões de Ação Dinâmicos */}
+          <View style={{ marginTop: Spacing.md }}>
+            {/* 1. Comércio aceita o pedido */}
+            {isBusiness && delivery.status === 'pending' && !delivery.business_accepted_at && (
+              <TouchableOpacity
+                style={[styles.primaryBtn, accepting && { opacity: 0.7 }]}
+                onPress={handleAcceptByBusiness}
+                disabled={accepting}
+              >
+                {accepting ? <ActivityIndicator color={Colors.white} /> : (
+                  <>
+                    <MaterialIcons name="check-circle" size={22} color={Colors.white} />
+                    <Text style={styles.primaryBtnText}>Aceitar e Chamar Entregador</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {/* 2. Cliente acompanha a entrega */}
+            {isCustomer && (delivery.status === 'assigned' || delivery.status === 'collected') && (
+              <TouchableOpacity
+                style={styles.trackBtn}
+                onPress={() => router.push(`/(customer)/track-delivery?id=${delivery.id}`)}
+              >
+                <MaterialIcons name="map" size={22} color={Colors.white} />
+                <Text style={styles.trackBtnText}>Acompanhar Entrega no Mapa</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {delivery.status === 'pending' && !delivery.motoboy_id && (
             <TouchableOpacity
-              style={[styles.cancelBtn, cancelling && styles.btnDisabled]}
+              style={[styles.cancelBtn, cancelling && styles.btnDisabled, { marginTop: Spacing.md }]}
               onPress={handleCancel}
               disabled={cancelling}
               activeOpacity={0.8}
@@ -252,6 +300,18 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md, height: 50, alignItems: 'center', justifyContent: 'center',
   },
   whatsappMotoboyText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.md },
+  primaryBtn: {
+    flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.success,
+    borderRadius: BorderRadius.md, height: 54, alignItems: 'center', justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  primaryBtnText: { color: Colors.white, fontWeight: '800', fontSize: FontSize.md },
+  trackBtn: {
+    flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.info,
+    borderRadius: BorderRadius.md, height: 54, alignItems: 'center', justifyContent: 'center',
+    marginBottom: Spacing.sm,
+  },
+  trackBtnText: { color: Colors.white, fontWeight: '800', fontSize: FontSize.md },
   cancelBtn: {
     flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.surface,
     borderRadius: BorderRadius.md, height: 50, alignItems: 'center', justifyContent: 'center',
