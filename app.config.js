@@ -6,7 +6,7 @@ const variant = loadAppVariantEnv(path.resolve(__dirname));
 
 const VARIANTS = {
   client: {
-    name: 'fass',
+    name: 'FastFood',
     slug: 'fastfood',
     scheme: 'fastfood',
     iosBundle: 'com.fastfood.app',

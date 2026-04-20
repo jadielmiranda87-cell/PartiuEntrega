@@ -9,9 +9,9 @@ export const APP_VARIANT: AppVariant =
 
 /**
  * Nome do app neste build (vem do `app.config.js` por variante).
- * Cliente: fass · Comércio: FastFood Comércio · Entregador: FastFood Entregador
+ * Cliente: FastFood · Comércio: FastFood Comércio · Entregador: FastFood Entregador
  */
-export const APP_DISPLAY_NAME = Constants.expoConfig?.name ?? 'fass';
+export const APP_DISPLAY_NAME = Constants.expoConfig?.name ?? 'FastFood';
 
 /**
  * Nome curto em mensagens (WhatsApp, compartilhar, etc.).
@@ -20,7 +20,7 @@ export const APP_DISPLAY_NAME = Constants.expoConfig?.name ?? 'fass';
 export function getAppShortName(): string {
   if (APP_VARIANT === 'business') return 'FastFood Comércio';
   if (APP_VARIANT === 'motoboy') return 'FastFood';
-  return 'fass';
+  return 'FastFood';
 }
 
 export const APP_SHORT_NAME = getAppShortName();
