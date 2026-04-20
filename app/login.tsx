@@ -127,7 +127,7 @@ export default function LoginScreen() {
             <MaterialIcons name="delivery-dining" size={48} color={Colors.primary} />
           </View>
           <Text style={styles.appName}>
-            {APP_VARIANT === 'client' ? 'Partiu Entrega' : APP_DISPLAY_NAME}
+            {APP_VARIANT === 'client' ? 'FastFood' : APP_DISPLAY_NAME}
           </Text>
           <Text style={styles.tagline}>Pedidos rápidos entre comércios e entregadores</Text>
         </View>
