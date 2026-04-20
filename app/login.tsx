@@ -11,7 +11,9 @@ import { getAppConfig } from '@/services/configService';
 import { openWhatsApp, openEmail } from '@/utils/links';
 import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { APP_DISPLAY_NAME, APP_VARIANT } from '@/constants/branding';
+import { APP_VARIANT } from '@/constants/branding';
+
+const LOGIN_APP_NAME = 'Fass';
 
 type Screen = 'login' | 'forgot_email' | 'forgot_otp';
 
@@ -126,7 +128,7 @@ export default function LoginScreen() {
           <View style={styles.logoIcon}>
             <MaterialIcons name="delivery-dining" size={48} color={Colors.primary} />
           </View>
-          <Text style={styles.appName}>{APP_DISPLAY_NAME}</Text>
+          <Text style={styles.appName}>{LOGIN_APP_NAME}</Text>
           <Text style={styles.tagline}>Pedidos rápidos entre comércios e entregadores</Text>
         </View>
 
