@@ -312,12 +312,13 @@ export default function LoginScreen() {
           </View>
         )}
 
-        {/* Register Options — Ainda não tem conta? Sou Comércio, Sou Motoboy */}
+        {/* Register Options — Ainda não tem conta? */}
         {screen === 'login' && (
           <View style={styles.registerSection}>
             <Text style={styles.registerTitle}>Ainda não tem conta?</Text>
 
-            {(APP_VARIANT === 'client' || APP_VARIANT === 'business') && (
+            {/* Opção principal de cadastro por variante */}
+            {APP_VARIANT === 'business' && (
               <TouchableOpacity
                 style={styles.registerBtn}
                 onPress={() => router.push('/register-business')}
@@ -325,20 +326,14 @@ export default function LoginScreen() {
               >
                 <MaterialIcons name="store" size={22} color={Colors.primary} />
                 <View style={styles.registerBtnText}>
-                  <Text style={styles.registerBtnTitle}>
-                    {APP_VARIANT === 'client' ? 'Sou Comércio' : 'Criar conta de comércio'}
-                  </Text>
-                  <Text style={styles.registerBtnSub}>
-                    {APP_VARIANT === 'client'
-                      ? 'App FastFood Comércio — cadastro grátis, solicite entregas'
-                      : 'Cadastro grátis — solicite entregas'}
-                  </Text>
+                  <Text style={styles.registerBtnTitle}>Criar conta comércio</Text>
+                  <Text style={styles.registerBtnSub}>Cadastro grátis — solicite entregas</Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
               </TouchableOpacity>
             )}
 
-            {(APP_VARIANT === 'client' || APP_VARIANT === 'motoboy') && (
+            {APP_VARIANT === 'motoboy' && (
               <TouchableOpacity
                 style={styles.registerBtn}
                 onPress={() => router.push('/register-motoboy')}
@@ -346,31 +341,58 @@ export default function LoginScreen() {
               >
                 <MaterialIcons name="two-wheeler" size={22} color={Colors.secondary} />
                 <View style={styles.registerBtnText}>
-                  <Text style={styles.registerBtnTitle}>
-                    {APP_VARIANT === 'client' ? 'Sou Entregador' : 'Criar conta de entregador'}
-                  </Text>
-                  <Text style={styles.registerBtnSub}>
-                    {APP_VARIANT === 'client'
-                      ? 'App FastFood Entregador — assinatura mensal, faça entregas'
-                      : 'Assinatura mensal — faça entregas'}
-                  </Text>
+                  <Text style={styles.registerBtnTitle}>Criar conta de entregador</Text>
+                  <Text style={styles.registerBtnSub}>Assinatura mensal — faça entregas</Text>
                 </View>
                 <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              style={styles.registerBtn}
-              onPress={() => router.push('/register-customer')}
-              activeOpacity={0.8}
-            >
-              <MaterialIcons name="restaurant" size={22} color={Colors.warning} />
-              <View style={styles.registerBtnText}>
-                <Text style={styles.registerBtnTitle}>Sou Cliente</Text>
-                <Text style={styles.registerBtnSub}>Peça de restaurantes cadastrados</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
-            </TouchableOpacity>
+            {APP_VARIANT === 'client' && (
+              <TouchableOpacity
+                style={styles.registerBtn}
+                onPress={() => router.push('/register-customer')}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="restaurant" size={22} color={Colors.warning} />
+                <View style={styles.registerBtnText}>
+                  <Text style={styles.registerBtnTitle}>Criar conta cliente</Text>
+                  <Text style={styles.registerBtnSub}>Peça de restaurantes cadastrados</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
+
+            {/* Opções de redirecionamento para suporte se não for o perfil do app */}
+            {APP_VARIANT === 'client' && (
+              <TouchableOpacity
+                style={styles.registerBtn}
+                onPress={() => openWhatsApp(contactWhatsApp)}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="help-outline" size={22} color={Colors.textMuted} />
+                <View style={styles.registerBtnText}>
+                  <Text style={styles.registerBtnTitle}>Não sou cliente</Text>
+                  <Text style={styles.registerBtnSub}>Dúvidas ou outros perfis? Fale conosco</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
+
+            {APP_VARIANT === 'motoboy' && (
+              <TouchableOpacity
+                style={styles.registerBtn}
+                onPress={() => openWhatsApp(contactWhatsApp)}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="help-outline" size={22} color={Colors.textMuted} />
+                <View style={styles.registerBtnText}>
+                  <Text style={styles.registerBtnTitle}>Não sou entregador</Text>
+                  <Text style={styles.registerBtnSub}>Dúvidas sobre o cadastro? Fale conosco</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -396,7 +418,7 @@ export default function LoginScreen() {
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons name="whatsapp" size={24} color={Colors.success} />
-                <Text style={styles.contactBtnText}>Entre em Contato</Text>
+                <Text style={styles.contactBtnText}>WhatsApp para suporte</Text>
               </TouchableOpacity>
             ) : null}
           </View>

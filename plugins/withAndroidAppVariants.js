@@ -12,7 +12,7 @@ function injectFlavors(contents) {
         client {
             dimension "appvariant"
             applicationId 'com.fastfood.app'
-            resValue "string", "app_name", "FastFud"
+            resValue "string", "app_name", "FastFood"
         }
         business {
             dimension "appvariant"
