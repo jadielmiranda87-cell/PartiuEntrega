@@ -55,6 +55,13 @@ export default function MotoboyLayout() {
         }}
       />
       <Tabs.Screen
+        name="schedule"
+        options={{
+          title: 'Agenda',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="event" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="my-rides"
         options={{
           title: 'Minhas Corridas',
