@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getBusinessById, getMenuForBusiness } from '@/services/catalogService';
 import type { Business, Product, ProductCategory } from '@/types';
-import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
+import { Colors, Spacing, FontSize, BorderRadius, Shadows } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCart } from '@/contexts/CartContext';
 import { formatCurrency } from '@/utils/links';
@@ -138,7 +138,10 @@ export default function StoreMenuScreen() {
             if (items.length === 0) return null;
             return (
               <View key={cat.id} style={styles.section}>
-                <Text style={styles.catTitle}>{cat.name}</Text>
+                <View style={styles.catHeader}>
+                  <View style={styles.catAccent} />
+                  <Text style={styles.catTitle}>{cat.name}</Text>
+                </View>
                 {items.map((p) => {
                   const unit = Number(p.price);
                   const cmp =
@@ -147,31 +150,32 @@ export default function StoreMenuScreen() {
                   return (
                     <TouchableOpacity
                       key={p.id}
-                      style={styles.productRow}
+                      style={styles.productCard}
                       onPress={() => openProduct(p.id)}
-                      activeOpacity={0.85}
+                      activeOpacity={0.9}
                     >
+                      <View style={styles.productBody}>
+                        <Text style={styles.pName} numberOfLines={2}>{p.name}</Text>
+                        {p.description ? (
+                          <Text style={styles.pDesc} numberOfLines={2}>{p.description}</Text>
+                        ) : null}
+                        <View style={styles.priceRow}>
+                          {showStrike ? <Text style={styles.pCompare}>{formatCurrency(cmp!)}</Text> : null}
+                          <Text style={styles.pPrice}>{formatCurrency(unit)}</Text>
+                        </View>
+                      </View>
                       {p.image_url ? (
                         <Image
                           source={{ uri: p.image_url }}
                           style={styles.pImage}
                           contentFit="cover"
-                          transition={120}
+                          transition={160}
                         />
                       ) : (
                         <View style={styles.pImagePlaceholder}>
-                          <MaterialIcons name="restaurant" size={28} color={Colors.textMuted} />
+                          <MaterialIcons name="restaurant" size={30} color={Colors.textMuted} />
                         </View>
                       )}
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.pName}>{p.name}</Text>
-                        {p.description ? <Text style={styles.pDesc} numberOfLines={2}>{p.description}</Text> : null}
-                        <View style={styles.priceRow}>
-                          <Text style={styles.pPrice}>{formatCurrency(unit)}</Text>
-                          {showStrike ? <Text style={styles.pCompare}>{formatCurrency(cmp!)}</Text> : null}
-                        </View>
-                      </View>
-                      <MaterialIcons name="chevron-right" size={24} color={Colors.textMuted} />
                     </TouchableOpacity>
                   );
                 })}
@@ -217,23 +221,34 @@ const styles = StyleSheet.create({
   hoursVal: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text },
   hoursHint: { fontSize: FontSize.sm, color: Colors.textMuted, marginBottom: Spacing.lg },
   section: { marginBottom: Spacing.lg },
-  catTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text, marginBottom: Spacing.sm },
-  productRow: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  catHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.md },
+  catAccent: { width: 4, height: 18, borderRadius: 2, backgroundColor: Colors.primary },
+  catTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text, letterSpacing: 0.2 },
+  productCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.sm,
+    ...Shadows.card,
   },
+  productBody: { flex: 1, gap: 4, paddingRight: Spacing.xs },
   pImage: {
-    width: 72, height: 72, borderRadius: BorderRadius.md,
+    width: 104, height: 104, borderRadius: BorderRadius.md,
     backgroundColor: Colors.surfaceElevated,
   },
   pImagePlaceholder: {
-    width: 72, height: 72, borderRadius: BorderRadius.md,
+    width: 104, height: 104, borderRadius: BorderRadius.md,
     backgroundColor: Colors.surfaceElevated,
     alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border,
   },
-  pName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text },
-  pDesc: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 6, flexWrap: 'wrap' },
+  pName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text, lineHeight: 20 },
+  pDesc: { fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 19 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4, flexWrap: 'wrap' },
   pPrice: { fontSize: FontSize.md, fontWeight: '800', color: Colors.success },
   pCompare: { fontSize: FontSize.sm, color: Colors.textMuted, textDecorationLine: 'line-through' },
   errorBox: {
