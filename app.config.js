@@ -32,6 +32,51 @@ const v = VARIANTS[variant] || VARIANTS.client;
 /** Textos de permissão: nome do app instalado neste build. */
 const BRAND = v.name;
 
+/** Definição dinâmica de permissões Android por variante */
+const getAndroidPermissions = (variant) => {
+  const common = [
+    'android.permission.VIBRATE',
+    'android.permission.RECEIVE_BOOT_COMPLETED',
+    'android.permission.POST_NOTIFICATIONS',
+    'android.permission.INTERNET',
+    'android.permission.ACCESS_NETWORK_STATE',
+  ];
+
+  if (variant === 'motoboy') {
+    return [
+      ...common,
+      'android.permission.CAMERA',
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.WRITE_EXTERNAL_STORAGE',
+      'android.permission.READ_MEDIA_IMAGES',
+      'android.permission.ACCESS_FINE_LOCATION',
+      'android.permission.ACCESS_COARSE_LOCATION',
+      'android.permission.ACCESS_BACKGROUND_LOCATION',
+      'android.permission.FOREGROUND_SERVICE',
+      'android.permission.FOREGROUND_SERVICE_LOCATION',
+      'android.permission.CALL_PHONE',
+      'android.permission.SCHEDULE_EXACT_ALARM',
+    ];
+  }
+
+  if (variant === 'business') {
+    return [
+      ...common,
+      'android.permission.CAMERA',
+      'android.permission.READ_MEDIA_IMAGES',
+      'android.permission.ACCESS_FINE_LOCATION',
+      'android.permission.ACCESS_COARSE_LOCATION',
+    ];
+  }
+
+  // App Cliente (Default)
+  return [
+    ...common,
+    'android.permission.ACCESS_FINE_LOCATION',
+    'android.permission.ACCESS_COARSE_LOCATION',
+  ];
+};
+
 module.exports = {
   expo: {
     owner: 'jadielbast',
@@ -68,22 +113,7 @@ module.exports = {
           apiKey: 'AIzaSyBc8HQ1X4uw6oGHRdzVsquazBQd2G4ofqs',
         },
       },
-      permissions: [
-        'android.permission.CAMERA',
-        'android.permission.READ_EXTERNAL_STORAGE',
-        'android.permission.WRITE_EXTERNAL_STORAGE',
-        'android.permission.READ_MEDIA_IMAGES',
-        'android.permission.READ_MEDIA_VIDEO',
-        'android.permission.ACCESS_FINE_LOCATION',
-        'android.permission.ACCESS_COARSE_LOCATION',
-        'android.permission.VIBRATE',
-        'android.permission.RECEIVE_BOOT_COMPLETED',
-        'android.permission.POST_NOTIFICATIONS',
-        'android.permission.SCHEDULE_EXACT_ALARM',
-        'android.permission.FOREGROUND_SERVICE',
-        'android.permission.FOREGROUND_SERVICE_LOCATION',
-        'android.permission.CALL_PHONE',
-      ],
+      permissions: getAndroidPermissions(variant),
     },
     web: {
       bundler: 'metro',
