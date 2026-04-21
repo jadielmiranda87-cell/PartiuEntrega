@@ -78,3 +78,38 @@ export async function incrementOnlineMinutes(motoboyId: string, shift: Shift): P
     s_shift: shift
   });
 }
+
+/**
+ * Busca todos os agendamentos de uma data específica (Admin)
+ */
+export async function adminGetAllSchedules(date: string): Promise<MotoboySchedule[]> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from('motoboy_schedules')
+    .select('*, motoboys(name, phone)')
+    .eq('work_date', date)
+    .order('shift', { ascending: true });
+
+  if (error) {
+    console.error('Error fetching admin schedules:', error);
+    return [];
+  }
+  return data ?? [];
+}
+
+/**
+ * Aplica um bônus a um agendamento específico (Admin)
+ */
+export async function adminApplyBonus(scheduleId: string, value: number): Promise<{ error: string | null }> {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from('motoboy_schedules')
+    .update({
+      bonus_value: value,
+      is_eligible_for_bonus: true,
+      bonus_paid: true
+    })
+    .eq('id', scheduleId);
+
+  return { error: error ? error.message : null };
+}
