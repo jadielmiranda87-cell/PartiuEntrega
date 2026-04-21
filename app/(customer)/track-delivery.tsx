@@ -227,23 +227,3 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: { color: Colors.white, fontWeight: '800', fontSize: FontSize.sm },
 });
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  backBtn: {
-    position: 'absolute', left: 16, width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center',
-    elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4,
-  },
-  bottomCard: {
-    position: 'absolute', left: 0, right: 0, bottom: 0,
-    backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 20, elevation: 20, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10,
-  },
-  statusRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
-  statusText: { fontSize: FontSize.md, fontWeight: '700', color: Colors.primary },
-  bizName: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text },
-  orderId: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 4 },
-  pulse: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
-});
