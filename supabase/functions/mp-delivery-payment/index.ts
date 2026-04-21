@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
-type Action = 'preference' | 'pix' | 'saved_card';
+type Action = 'preference' | 'pix' | 'saved_card' | 'refund';
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -49,7 +49,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  let body: { action?: Action; delivery_id?: string; saved_card_id?: string };
+  let body: { action?: Action; delivery_id?: string; saved_card_id?: string; };
   try {
     body = await req.json();
   } catch {
@@ -71,7 +71,7 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, serviceKey);
   const { data: delivery, error: dErr } = await admin
     .from('deliveries')
-    .select('id, price, customer_name, customer_user_id, payment_status')
+    .select('id, price, customer_name, customer_user_id, payment_status, mp_payment_id, business_id')
     .eq('id', deliveryId)
     .single();
 
@@ -82,6 +82,92 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // --- Refund action: allowed for business owner or the customer themselves ---
+  if (action === 'refund') {
+    // Verify caller is either the customer or the business owner
+    const isCustomer = delivery.customer_user_id === user.id;
+    let isBusiness = false;
+    if (!isCustomer) {
+      const { data: biz } = await admin
+        .from('businesses')
+        .select('id')
+        .eq('id', delivery.business_id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      isBusiness = !!biz;
+    }
+    if (!isCustomer && !isBusiness) {
+      return new Response(JSON.stringify({ error: 'Acesso negado' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (delivery.payment_status === 'refunded') {
+      return new Response(JSON.stringify({ error: 'Pedido já reembolsado' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const mpPaymentId = delivery.mp_payment_id;
+    if (!mpPaymentId) {
+      return new Response(JSON.stringify({ error: 'Pedido sem ID de pagamento Mercado Pago — não é possível reembolsar' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    try {
+      const refundRes = await fetch(
+        `https://api.mercadopago.com/v1/payments/${encodeURIComponent(mpPaymentId)}/refunds`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json',
+            'X-Idempotency-Key': crypto.randomUUID(),
+          },
+          body: JSON.stringify({}), // reembolso total; enviar { amount } para parcial
+        }
+      );
+
+      const refundText = await refundRes.text();
+      console.log(`MP refund delivery=${deliveryId} payment=${mpPaymentId} status=${refundRes.status} body=${refundText}`);
+
+      if (!refundRes.ok) {
+        return new Response(JSON.stringify({ error: `Mercado Pago: ${refundText}` }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const refundData = JSON.parse(refundText);
+
+      await admin
+        .from('deliveries')
+        .update({ payment_status: 'refunded' })
+        .eq('id', deliveryId);
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          refund_id: refundData.id,
+          status: refundData.status,
+          amount: refundData.amount,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (err) {
+      console.error('mp-delivery-payment refund error:', err);
+      return new Response(JSON.stringify({ error: String(err) }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
+  // --- Payment actions: customer-only ---
   if (delivery.customer_user_id !== user.id) {
     return new Response(JSON.stringify({ error: 'Acesso negado' }), {
       status: 403,

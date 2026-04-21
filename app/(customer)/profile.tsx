@@ -45,26 +45,25 @@ export default function CustomerProfileScreen() {
 
     try {
       const supabase = getSupabaseClient();
-      const fileExt = uri.split('.').pop();
-      const fileName = `${profile.id}-${Math.random()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const fileExt = uri.split('.').pop() ?? 'jpg';
+      const fileName = `${profile.id}/${Date.now()}.${fileExt}`;
 
       const formData = new FormData();
       formData.append('file', {
         uri,
-        name: fileName,
+        name: `avatar.${fileExt}`,
         type: `image/${fileExt}`,
       } as any);
 
       const { error: uploadError } = await supabase.storage
-        .from('public')
-        .upload(filePath, formData);
+        .from('avatars')
+        .upload(fileName, formData, { upsert: true });
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('public')
-        .getPublicUrl(filePath);
+        .from('avatars')
+        .getPublicUrl(fileName);
 
       const { error: updateError } = await supabase
         .from('user_profiles')
