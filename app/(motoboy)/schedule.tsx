@@ -12,8 +12,8 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useAppAuth } from '@/hooks/useAppAuth';
 import { Colors, Spacing, FontSize, BorderRadius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getMotoboySchedules, toggleSchedule, Shift } from '@/services/motoboyScheduleService';
-import { format, addDays, startOfDay, isSameDay } from 'date-fns';
+import { getMotoboySchedules, createSchedule, Shift } from '@/services/motoboyScheduleService';
+import { format, addDays, startOfDay, isAfter, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const DAYS_TO_SHOW = 14;
@@ -25,7 +25,8 @@ export default function MotoboyScheduleScreen() {
   const [schedules, setSchedules] = useState<any[]>([]);
   const [updatingShift, setUpdatingShift] = useState<string | null>(null);
 
-  const dates = Array.from({ length: DAYS_TO_SHOW }, (_, i) => addDays(startOfDay(new Date()), i));
+  // Agendamento permitido apenas a partir de amanhã
+  const dates = Array.from({ length: DAYS_TO_SHOW }, (_, i) => addDays(startOfDay(new Date()), i + 1));
 
   const loadSchedules = useCallback(async () => {
     if (!motoboyProfile?.id) return;
@@ -41,20 +42,35 @@ export default function MotoboyScheduleScreen() {
     loadSchedules();
   }, [loadSchedules]);
 
-  const handleToggleShift = async (date: Date, shift: Shift) => {
+  const handleCreateSchedule = async (date: Date, shift: Shift, label: string) => {
     if (!motoboyProfile?.id) return;
+
     const dateStr = format(date, 'yyyy-MM-dd');
-    const key = `${dateStr}-${shift}`;
+    const dateFormatted = format(date, "dd/MM/yyyy");
 
-    setUpdatingShift(key);
-    const { error } = await toggleSchedule(motoboyProfile.id, dateStr, shift);
-    setUpdatingShift(null);
+    Alert.alert(
+      'Confirmar Agendamento',
+      `Você deseja agendar o turno ${label} para o dia ${dateFormatted}?\n\nIMPORTANTE: Uma vez confirmado, o agendamento não poderá ser alterado ou cancelado.`,
+      [
+        { text: 'Voltar', style: 'cancel' },
+        {
+          text: 'Confirmar',
+          onPress: async () => {
+            const key = `${dateStr}-${shift}`;
+            setUpdatingShift(key);
+            const { error } = await createSchedule(motoboyProfile.id, dateStr, shift);
+            setUpdatingShift(null);
 
-    if (error) {
-      Alert.alert('Erro', 'Não foi possível atualizar o agendamento.');
-    } else {
-      loadSchedules();
-    }
+            if (error) {
+              Alert.alert('Erro', error);
+            } else {
+              Alert.alert('Sucesso', 'Turno agendado com sucesso!');
+              loadSchedules();
+            }
+          }
+        }
+      ]
+    );
   };
 
   const isShiftSelected = (date: Date, shift: Shift) => {
@@ -74,8 +90,8 @@ export default function MotoboyScheduleScreen() {
           styles.shiftBtn,
           selected && styles.shiftBtnSelected,
         ]}
-        onPress={() => handleToggleShift(date, shift)}
-        disabled={!!updatingShift}
+        onPress={() => !selected && handleCreateSchedule(date, shift, label)}
+        disabled={!!updatingShift || selected}
       >
         <View style={styles.shiftContent}>
           <MaterialIcons
@@ -91,7 +107,7 @@ export default function MotoboyScheduleScreen() {
             <ActivityIndicator size="small" color={selected ? Colors.white : Colors.primary} />
           ) : (
             <MaterialIcons
-              name={selected ? "check-circle" : "radio-button-unchecked"}
+              name={selected ? "lock" : "add-circle-outline"}
               size={20}
               color={selected ? Colors.white : Colors.border}
             />
@@ -113,7 +129,11 @@ export default function MotoboyScheduleScreen() {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Minha Agenda</Text>
-        <Text style={styles.subtitle}>Selecione os turnos que você estará disponível</Text>
+        <Text style={styles.subtitle}>Agende sua disponibilidade para os próximos dias</Text>
+        <View style={styles.infoBox}>
+          <MaterialIcons name="info" size={16} color={Colors.info} />
+          <Text style={styles.infoText}>Agendamentos devem ser feitos até o dia anterior e são imutáveis.</Text>
+        </View>
       </View>
 
       <FlatList
@@ -149,6 +169,16 @@ const styles = StyleSheet.create({
   header: { padding: Spacing.md, marginBottom: Spacing.xs },
   title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.text },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.info + '15',
+    padding: 10,
+    borderRadius: BorderRadius.sm,
+    marginTop: 12,
+    gap: 8
+  },
+  infoText: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
   listContent: { padding: Spacing.md, paddingBottom: 40 },
   dayCard: {
     backgroundColor: Colors.surface,
