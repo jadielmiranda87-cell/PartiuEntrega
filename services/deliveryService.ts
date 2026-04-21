@@ -199,3 +199,54 @@ export async function getDeliveryById(id: string): Promise<Delivery | null> {
     .single();
   return data;
 }
+
+/**
+ * Cliente solicita cancelamento com reembolso.
+ * Só é permitido se o comércio ainda não aceitou o pedido.
+ */
+export async function customerCancelWithRefund(deliveryId: string): Promise<{ error: string | null }> {
+  const supabase = getSupabaseClient();
+
+  // 1. Verifica status atual e se já foi aceito pelo comércio
+  const { data: delivery, error: fetchError } = await supabase
+    .from('deliveries')
+    .select('status, business_accepted_at, payment_status')
+    .eq('id', deliveryId)
+    .single();
+
+  if (fetchError || !delivery) return { error: 'Pedido não encontrado.' };
+
+  if (delivery.business_accepted_at) {
+    return { error: 'O comércio já aceitou seu pedido. Cancelamento não é mais possível por aqui.' };
+  }
+
+  if (delivery.status === 'cancelled') {
+    return { error: 'Este pedido já está cancelado.' };
+  }
+
+  // 2. Processa o reembolso se estiver pago
+  if (delivery.payment_status === 'paid') {
+    try {
+      const { error: refundError } = await supabase.functions.invoke('mp-delivery-payment', {
+        body: { action: 'refund', delivery_id: deliveryId }
+      });
+      if (refundError) throw new Error('Falha no reembolso: ' + refundError.message);
+    } catch (e: any) {
+      return { error: e.message };
+    }
+  }
+
+  // 3. Atualiza para cancelado
+  const { error: updateError } = await supabase
+    .from('deliveries')
+    .update({
+      status: 'cancelled',
+      notes: 'Cancelado pelo cliente (reembolso automático)'
+    })
+    .eq('id', deliveryId)
+    .is('business_accepted_at', null); // Garantia extra anti-concorrência
+
+  if (updateError) return { error: 'O comércio aceitou o pedido no exato momento. Cancelamento impedido.' };
+
+  return { error: null };
+}
