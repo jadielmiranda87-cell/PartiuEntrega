@@ -72,6 +72,8 @@ const getAndroidPermissions = (variant) => {
   // App Cliente (Default)
   return [
     ...common,
+    'android.permission.CAMERA',
+    'android.permission.READ_MEDIA_IMAGES',
     'android.permission.ACCESS_FINE_LOCATION',
     'android.permission.ACCESS_COARSE_LOCATION',
   ];
