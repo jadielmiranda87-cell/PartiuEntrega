@@ -23,16 +23,25 @@ export default function MyRidesScreen() {
   const router = useRouter();
 
   const loadData = useCallback(async () => {
-    if (!motoboyProfile) return;
-    const [a, h] = await Promise.all([
-      getMotoboyDeliveries(motoboyProfile.id),
-      getMotoboyHistory(motoboyProfile.id),
-    ]);
-    setActive(a);
-    setHistory(h);
-    setLoading(false);
-    setRefreshing(false);
-  }, [motoboyProfile]);
+    if (!motoboyProfile?.id) {
+      setLoading(false);
+      return;
+    }
+    try {
+      setLoading(true);
+      const [a, h] = await Promise.all([
+        getMotoboyDeliveries(motoboyProfile.id),
+        getMotoboyHistory(motoboyProfile.id),
+      ]);
+      setActive(a || []);
+      setHistory(h || []);
+    } catch (e) {
+      console.error('[MyRides] Erro ao carregar dados:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [motoboyProfile?.id]);
 
   useFocusEffect(useCallback(() => { loadData(); }, [loadData]));
 

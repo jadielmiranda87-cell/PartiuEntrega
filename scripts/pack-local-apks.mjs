@@ -28,7 +28,7 @@ const isWin = process.platform === 'win32';
 const gradle = isWin ? join(ANDROID, 'gradlew.bat') : join(ANDROID, 'gradlew');
 
 const STEPS = [
-  { env: 'client', task: 'assembleClientRelease', src: join(ANDROID, 'app/build/outputs/apk/client/release/app-client-release.apk'), dest: 'FastFud-cliente.apk' },
+  { env: 'client', task: 'assembleClientRelease', src: join(ANDROID, 'app/build/outputs/apk/client/release/app-client-release.apk'), dest: 'FastFood-cliente.apk' },
   { env: 'business', task: 'assembleBusinessRelease', src: join(ANDROID, 'app/build/outputs/apk/business/release/app-business-release.apk'), dest: 'FastFood-comercio.apk' },
   { env: 'motoboy', task: 'assembleMotoboyRelease', src: join(ANDROID, 'app/build/outputs/apk/motoboy/release/app-motoboy-release.apk'), dest: 'FastFood-entregador.apk' },
 ];
