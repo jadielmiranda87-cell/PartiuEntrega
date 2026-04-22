@@ -95,6 +95,13 @@ export default function AdminLayout() {
         }}
       />
       <Tabs.Screen
+        name="schedules"
+        options={{
+          title: 'Agenda',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="event-available" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="motoboys"
         options={{
           title: 'Motoboys',
