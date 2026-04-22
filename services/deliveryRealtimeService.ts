@@ -30,36 +30,6 @@ export function subscribeDeliveriesTable(onChange: () => void): () => void {
   };
 }
 
-/**
- * Escuta mudanças em um pedido específico (rastreamento).
- * Retorna os novos dados quando houver um UPDATE.
- */
-export function subscribeDeliveryRealtime(
-  deliveryId: string,
-  onUpdate: (payload: any) => void
-): () => void {
-  const supabase = getSupabaseClient();
-  const channel = supabase
-    .channel(`delivery-track-${deliveryId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'deliveries',
-        filter: `id=eq.${deliveryId}`,
-      },
-      (payload) => {
-        onUpdate(payload.new);
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}
-
 /** Apenas mudanças nos pedidos deste comércio. */
 export function subscribeBusinessDeliveries(businessId: string, onChange: () => void): () => void {
   const supabase = getSupabaseClient();
@@ -83,32 +53,4 @@ export function subscribeBusinessDeliveries(businessId: string, onChange: () => 
   };
 }
 
-/**
- * Escuta mudanças em um pedido específico (rastreamento).
- * Retorna os novos dados quando houver um UPDATE.
- */
-export function subscribeDeliveryRealtime(
-  deliveryId: string,
-  onUpdate: (payload: any) => void
-): () => void {
-  const supabase = getSupabaseClient();
-  const channel = supabase
-    .channel(`delivery-track-${deliveryId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'deliveries',
-        filter: `id=eq.${deliveryId}`,
-      },
-      (payload) => {
-        onUpdate(payload.new);
-      }
-    )
-    .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}
