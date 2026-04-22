@@ -29,13 +29,23 @@ export default function MotoboyScheduleScreen() {
   const dates = Array.from({ length: DAYS_TO_SHOW }, (_, i) => addDays(startOfDay(new Date()), i + 1));
 
   const loadSchedules = useCallback(async () => {
-    if (!motoboyProfile?.id) return;
-    setLoading(true);
-    const start = format(dates[0], 'yyyy-MM-dd');
-    const end = format(dates[dates.length - 1], 'yyyy-MM-dd');
-    const data = await getMotoboySchedules(motoboyProfile.id, start, end);
-    setSchedules(data);
-    setLoading(false);
+    if (!motoboyProfile?.id) {
+      // Se não tem ID, aguarda um pouco e tenta novamente (pode estar carregando o Auth)
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const start = format(dates[0], 'yyyy-MM-dd');
+      const end = format(dates[dates.length - 1], 'yyyy-MM-dd');
+      const data = await getMotoboySchedules(motoboyProfile.id, start, end);
+      setSchedules(data || []);
+    } catch (e) {
+      console.error('[Schedule] Erro ao carregar agenda:', e);
+    } finally {
+      setLoading(false);
+    }
   }, [motoboyProfile?.id]);
 
   useEffect(() => {
